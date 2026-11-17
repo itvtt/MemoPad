@@ -34,8 +34,10 @@
 
 ## 네트워크
 
-- 포트 TCP 9710(메모) · 9712(대화) · 9726~(첨부)를 씁니다. 처음 켤 때 Windows 방화벽이 물으면 허용하세요.
-- 같은 PC 에서 정음 메모패드와 함께 켤 수 없습니다 (같은 포트). 정음 메모패드를 끄고 쓰세요 (설정 → 내 정보에 "받을 수 없음"이 보이면 다른 프로그램이 포트를 쓰는 것).
+- MemoPad 포트 TCP 9810(메모) · 9812(대화) · 9826~(첨부)로 받습니다. 정음 메모패드(9710 · 9712 · 9726~)와 포트가 달라 **같은 PC 에서 함께 켜 둘 수 있습니다.** 처음 켤 때 Windows 방화벽이 물으면 허용하세요.
+- 보낼 때는 상대가 MemoPad 면 MemoPad 로, 정음 메모패드만 있으면 정음 메모패드로 갑니다 (두 포트에 함께 연결해 받는 쪽으로).
+- 이 PC 에 정음 메모패드가 없으면 정음 포트(9710 · 9712)로도 받아, 정음 메모패드 사용자가 보낸 메모 · 대화도 MemoPad 가 받습니다. 정음 메모패드가 있으면 정음 포트는 그대로 두므로, 정음 메모패드 사용자가 보낸 것은 정음 메모패드가 받습니다. 설정 → 내 정보 아래에 지금 상태가 보입니다.
+- 자세한 내용: `docs/protocol.md` 의 포트.
 - 내 정보(이름 · ID · E-Mail · 대화명 · IP)는 설정 → 내 정보. 네트워크 카드가 여럿이면 IP 를 골라 두세요.
 - 주소록 폴더를 공유 폴더로 지정하면 여러 사람이 한 주소록(`addressbook.json`)을 씁니다.
 
@@ -45,7 +47,7 @@
   - `memos\<id>.json` 메모 하나에 파일 하나, 첨부는 `memos\<id>\files\`
   - `settings.json` 설정 (보안 암호는 해시만), `folders.json` 메모 관리기 폴더, `addressbook.json` 주소록 (주소록 폴더를 바꾸지 않았을 때)
   - `memopad.log` 오류 기록 (어떤 오류에도 앱은 꺼지지 않고 여기에 남김)
-- 시험할 때는 환경 변수 `MEMOPAD_DATA_DIR` 로 다른 폴더를 씁니다. `MEMOPAD_BIND` (받을 주소, 예: `127.0.0.1`), `MEMOPAD_MEMO_PORT` · `MEMOPAD_CHAT_PORT` (받을 포트), `MEMOPAD_REMOTE_PORT` · `MEMOPAD_REMOTE_CHAT_PORT` (상대 포트)로 한 PC 에서 여럿을 띄울 수 있습니다.
+- 시험할 때는 환경 변수 `MEMOPAD_DATA_DIR` 로 다른 폴더를 씁니다. `MEMOPAD_BIND` (받을 주소, 예: `127.0.0.2`)를 서로 다르게 주면 한 PC 에서 여럿을 띄울 수 있습니다. `MEMOPAD_JUNGUM_PORTS` = `1` · `0` 은 정음 포트로도 받을지를 정합니다 (없으면 이 PC 에 정음 메모패드가 없을 때만). `MEMOPAD_MEMO_PORT` · `MEMOPAD_CHAT_PORT` 는 MemoPad 포트를 바꿉니다 (모두 같은 값을 써야 서로 주고받음).
 - 설치된 사본은 처음 실행할 때 "Windows 시작할 때 실행"을 켭니다 (`--tray`). 설정 → 일반에서 끕니다.
 
 ## 빌드 · 확인
@@ -55,7 +57,7 @@ dotnet build MemoPad\MemoPad.csproj -c Release
 dotnet run --project MemoPad.Checks -c Release
 ```
 
-`MemoPad.Checks` 는 한/영 변환, 메모 머리(정음 배치 포함), RTF, 주소록, 저장소, 정음 메모 파일, 대화 메시지, 그리고 이 PC 안에서 127.0.0.5~7 주소로 메모 · 큰 첨부 · 상태 · 부재중 · 회람(3명) · 대화(3명)를 주고받아 확인합니다. 인자로 더 할 수 있습니다:
+`MemoPad.Checks` 는 한/영 변환, 메모 머리(정음 배치 포함), RTF, 주소록, 저장소, 정음 메모 파일, 대화 메시지, 그리고 이 PC 안에서 127.0.0.5~10 주소로 메모 · 큰 첨부 · 상태 · 부재중 · 회람(3명) · 대화(3명)와 포트(정음 메모패드와 한 PC 에 함께 켜진 곳 · 정음 메모패드만 있는 곳 · 정음 대화방)를 주고받아 확인합니다. 인자로 더 할 수 있습니다:
 
 | 인자 | 하는 일 |
 |---|---|
@@ -63,8 +65,9 @@ dotnet run --project MemoPad.Checks -c Release
 | `--jungum <IP> <ID>` | 실제 정음 메모패드에 상태 확인 · 메모 + 첨부 · 회람을 보내고, 그쪽에서 [회람 전달]하면 결과를 확인 |
 | `--jungum-wait <초>` | 받는 쪽으로 기다림: 받은 회람은 의견을 달아 전달, 받은 메모는 답장, 들어온 대화를 출력 |
 | `--jungum-chat <IP>` | 그쪽 대화방에 들어가 말하고 나옴 |
+| `--status <IP>` | 상태 확인만 (MemoPad, 없으면 정음 메모패드가 답함. 그쪽 화면에는 아무것도 뜨지 않음) |
 
-실제 시험의 이 PC 주소는 `MEMOPAD_LIVE_IP` (기본 `127.0.0.9`: 같은 PC 에서 정음 메모패드가 9710 을 쓰고 있어도 됨), ID 는 `MEMOPAD_LIVE_ID`.
+실제 시험의 이 PC 주소는 `MEMOPAD_LIVE_IP` (기본 `127.0.0.9`: 정음 포트로도 받으므로, 같은 PC 의 정음 메모패드는 다른 주소에서 9710 을 써야 함), ID 는 `MEMOPAD_LIVE_ID`.
 
 ## 릴리스
 
@@ -79,5 +82,5 @@ dotnet run --project MemoPad.Checks -c Release
 | `Ui\MemoWindow.*` | 메모 창 (편집 · 메뉴 · 그림 메모) |
 | `Ui\ManagerWindow.cs` · `SettingsWindow.cs` · `AddressBookWindow.cs` · `RecipientsWindow.cs` · `StatusWindow.cs` · `AlarmWindow.cs` · `ChatWindow.cs` | 메모 관리기 · 설정 · 주소록 · 받을 사람 · 상태 확인 · 알람 · 대화 |
 | `Ui\ChatService.cs` | 대화 (방장 · 손님) |
-| `Net\JuProtocol.cs` · `MemoService.cs` · `ChatProtocol.cs` | 정음 메모패드 형식 · 메모 포트 · 대화 메시지 |
+| `Net\JuProtocol.cs` · `MemoService.cs` · `ChatProtocol.cs` · `Ports.cs` | 정음 메모패드 형식 · 메모 포트 · 대화 메시지 · 포트 고르기 |
 | `Core\` | 메모 데이터 · 저장소 · 설정 · 주소록 · 한/영 변환 · RTF · 정음 메모 가져오기 |

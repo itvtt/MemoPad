@@ -52,6 +52,64 @@ static partial class Program
         Equal((id, "127.0.0.5", true), (notes[0].MemoId, notes[0].Ip, notes[0].Passed), "회람 알림 내용");
     }
 
+    /// <summary>
+    /// 포트: 127.0.0.8 = 정음 메모패드와 MemoPad 가 함께 켜진 PC (서로 다른 포트라 둘 다 듣고, MemoPad 끼리는 MemoPad 로),
+    /// 127.0.0.7 = 정음 메모패드만 있는 PC (정음 포트로 보냄)
+    /// </summary>
+    private static async Task PortsFlow()
+    {
+        using var jungumBoth = new MemoService(() => null, IPAddress.Parse("127.0.0.8"));
+        using var memoPadBoth = new MemoService(() => null, IPAddress.Parse("127.0.0.8"));
+        using var jungumOnly = new MemoService(() => null, IPAddress.Parse("127.0.0.7"));
+        using var sender = new MemoService(() => null, IPAddress.Parse("127.0.0.5"));
+        jungumBoth.SetJungumPort(true);
+        jungumOnly.SetJungumPort(true);
+        Assert(jungumBoth.JungumListening && jungumOnly.JungumListening && !jungumBoth.Listening, "정음 메모패드 대신: 정음 포트만 듣기");
+        Assert(memoPadBoth.Start(), "정음 메모패드가 켜진 PC 에서 MemoPad 듣기: " + memoPadBoth.StartError);
+        Assert(sender.Start(), "보내는 쪽 듣기: " + sender.StartError);
+        var atJungumBoth = new List<IncomingMemo>();
+        var atMemoPadBoth = new List<IncomingMemo>();
+        var atJungumOnly = new List<IncomingMemo>();
+        jungumBoth.MemoReceived += memo => { lock (atJungumBoth) atJungumBoth.Add(memo); };
+        memoPadBoth.MemoReceived += memo => { lock (atMemoPadBoth) atMemoPadBoth.Add(memo); };
+        jungumOnly.MemoReceived += memo => { lock (atJungumOnly) atJungumOnly.Add(memo); };
+
+        var header = new MemoHeader { Sender = new Person { Ip = "127.0.0.5", Id = "a", Name = "가" } };
+        string file = Path.Combine(Folder("ports"), "첨부.txt");
+        File.WriteAllText(file, "포트 시험");
+        var both = await sender.SendAsync(new Person { Ip = "127.0.0.8", Name = "함께" }, new OutgoingMemo(header, RtfText.FromPlain("MemoPad 에게"), [new OutgoingFile("첨부.txt", file)]), CancellationToken.None);
+        Assert(both.Ok, $"함께 켜진 PC 로 보내기: {both.Outcome} {both.Message}");
+        await Until(() => atMemoPadBoth.Count == 1, "MemoPad 가 받음");
+        Equal(0, atJungumBoth.Count, "정음 메모패드는 받지 않음");
+        Equal("포트 시험", System.Text.Encoding.UTF8.GetString(atMemoPadBoth[0].Files[0].Data), "MemoPad 첨부 (MemoPad 첨부 포트)");
+
+        var only = await sender.SendAsync(new Person { Ip = "127.0.0.7", Name = "정음" }, new OutgoingMemo(header, RtfText.FromPlain("정음에게"), [new OutgoingFile("첨부.txt", file)]), CancellationToken.None);
+        Assert(only.Ok, $"정음 메모패드만 있는 PC 로 보내기: {only.Outcome} {only.Message}");
+        await Until(() => atJungumOnly.Count == 1, "정음 포트로 받음");
+        Equal("정음에게", RtfText.Plain(atJungumOnly[0].Rtf), "정음 포트 본문");
+        Equal(1, atJungumOnly[0].Files.Count, "정음 포트 첨부");
+        Equal(PeerState.Present, (await MemoService.QueryStatusAsync("127.0.0.7", CancellationToken.None)).State, "정음 포트 상태 확인");
+
+        var host = NewDesk("정음방", "127.0.0.10");
+        var guest = NewDesk("손님", "127.0.0.6");
+        try
+        {
+            host.Chat.Stop();
+            host.Chat.SetJungumPort(true);
+            Assert(!host.Chat.Listening && host.Chat.JungumListening, "대화: 정음 포트만 듣기");
+            var session = new GuestSession(guest, host.Me);
+            Assert(await session.ConnectAsync(), "대화: 정음 포트로 들어감");
+            await Until(() => session.Lines.Any(l => l.Text.Contains("연결이 되었습니다")), "대화: 연결 알림");
+            session.Leave();
+        }
+        finally
+        {
+            foreach (var window in System.Windows.Application.Current.Windows.OfType<ChatWindow>().ToList()) window.Close();
+            host.Shutdown();
+            guest.Shutdown();
+        }
+    }
+
     /// <summary>책상(앱 한 개) 하나: 따로 쓰는 폴더 · 주소</summary>
     internal static Desk NewDesk(string name, string ip)
     {

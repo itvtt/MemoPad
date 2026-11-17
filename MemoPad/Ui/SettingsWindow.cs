@@ -303,9 +303,10 @@ internal sealed class SettingsWindow : Window
     private void UpdateNetState()
     {
         if (!S.UseNetwork) { _netState.Text = "꺼져 있음: 메모를 받지 않습니다."; return; }
-        _netState.Text = _desk.Net.Listening
-            ? $"받는 중: {NetAddress.MyAddress(S.Ip)} · 메모 포트 {MemoService.ListenPort} · 대화 포트 {ChatService.ListenPort}"
-            : $"받을 수 없음: {_desk.Net.StartError}";
+        if (!_desk.Net.Listening) { _netState.Text = $"받을 수 없음: {_desk.Net.StartError}"; return; }
+        _netState.Text = $"받는 중: {NetAddress.MyAddress(S.Ip)} · 메모 포트 {Ports.MemoPort} · 대화 포트 {Ports.ChatPort}\n" + (_desk.Net.JungumListening
+            ? $"정음 메모패드 사용자가 보낸 것도 받음 (포트 {JuProtocol.MemoPort} · {JuProtocol.ChatPort})"
+            : "정음 메모패드 사용자가 보낸 것은 이 PC 의 정음 메모패드가 받음");
     }
 
     private void UpdatePassword() => _passwordState.Text = S.HasPassword ? "보안 암호가 있습니다." : "보안 암호가 없습니다.";

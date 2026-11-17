@@ -55,7 +55,7 @@ public abstract class ChatSession
     }
 }
 
-/// <summary>방장: 이 PC 의 9712 로 들어온 손님들. 말을 받으면 모두에게 돌려줌</summary>
+/// <summary>방장: 이 PC 의 대화 포트로 들어온 손님들. 말을 받으면 모두에게 돌려줌</summary>
 public sealed class HostSession : ChatSession
 {
     private sealed class Guest
@@ -178,7 +178,7 @@ public sealed class HostSession : ChatSession
     }
 }
 
-/// <summary>손님: 다른 PC 의 9712 에 들어감</summary>
+/// <summary>손님: 다른 PC 의 대화방에 들어감 (MemoPad 9812, 없으면 정음 메모패드 9712)</summary>
 public sealed class GuestSession : ChatSession
 {
     private readonly Person _host;
@@ -196,7 +196,7 @@ public sealed class GuestSession : ChatSession
         Post(ChatLineKind.System, "", $">>> {_host.Label}({_host.Ip})에게 연결중...");
         try
         {
-            _client = await JuProtocol.ConnectAsync(_host.Ip, ChatService.RemotePort, TimeSpan.FromSeconds(4), Stop.Token);
+            _client = await Ports.ConnectAsync(_host.Ip, Ports.ChatTargets, TimeSpan.FromSeconds(4), Stop.Token);
             _stream = _client.GetStream();
             await _stream.WriteAsync(JuProtocol.Concat(ChatProtocol.Frame(ChatProtocol.Join, []), ChatProtocol.Frame(ChatProtocol.MyInfo, ChatProtocol.InfoPayload(MyChatName, Desk.Me))));
         }
@@ -267,21 +267,20 @@ public sealed class GuestSession : ChatSession
     }
 }
 
-/// <summary>대화 포트 듣기와 대화창 관리</summary>
+/// <summary>대화 포트 듣기와 대화창 관리. MemoPad 대화 포트(9812) + 이 PC 에 정음 메모패드가 없으면 정음 대화 포트(9712)</summary>
 public sealed class ChatService
 {
     private readonly Desk _desk;
     private TcpListener? _listener;
+    private TcpListener? _jungumListener;
     private HostSession? _host;
     private ChatWindow? _hostWindow;
 
     public ChatService(Desk desk) { _desk = desk; }
 
-    public static int ListenPort => int.TryParse(Environment.GetEnvironmentVariable("MEMOPAD_CHAT_PORT"), out int port) ? port : JuProtocol.ChatPort;
-    public static int RemotePort => int.TryParse(Environment.GetEnvironmentVariable("MEMOPAD_REMOTE_CHAT_PORT"), out int port) ? port : JuProtocol.ChatPort;
-
     public string StartError { get; private set; } = "";
     public bool Listening => _listener is not null;
+    public bool JungumListening => _jungumListener is not null;
     /// <summary>이 PC 의 대화방 (아무도 안 들어왔으면 null)</summary>
     public HostSession? Host => _host;
 
@@ -290,21 +289,31 @@ public sealed class ChatService
         if (_listener is not null) return;
         try
         {
-            var listener = new TcpListener(_desk.Net.Bind, ListenPort);
-            listener.Server.ExclusiveAddressUse = true;
-            listener.Start();
-            _listener = listener;
+            _listener = MemoService.Listen(_desk.Net.Bind, Ports.ChatPort);
             StartError = "";
-            _ = AcceptLoop(listener);
+            _ = AcceptLoop(_listener);
         }
         catch (SocketException error) { StartError = error.Message; }
     }
 
+    /// <summary>정음 메모패드 대화 포트(9712)로도 받기 켜기 · 끄기</summary>
+    public void SetJungumPort(bool on)
+    {
+        if (Ports.ChatPort == JuProtocol.ChatPort) on = false;
+        if (on == JungumListening) return;
+        if (!on) { MemoService.StopListener(ref _jungumListener); return; }
+        try
+        {
+            _jungumListener = MemoService.Listen(_desk.Net.Bind, JuProtocol.ChatPort);
+            _ = AcceptLoop(_jungumListener);
+        }
+        catch (SocketException) { }
+    }
+
     public void Stop()
     {
-        try { _listener?.Stop(); }
-        catch (SocketException) { }
-        _listener = null;
+        MemoService.StopListener(ref _listener);
+        MemoService.StopListener(ref _jungumListener);
         _host?.Leave();
         _host = null;
     }

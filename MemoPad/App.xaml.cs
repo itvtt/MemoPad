@@ -137,14 +137,12 @@ public partial class App : Application
         return new System.Drawing.Icon(stream, Forms.SystemInformation.SmallIconSize);
     }
 
-    /// <summary>메모를 받을 수 없으면 (보통 같은 PC 의 정음 메모패드가 포트를 씀) 트레이 알림</summary>
+    /// <summary>메모를 받을 수 없으면 (다른 프로그램이 MemoPad 포트를 씀) 트레이 알림</summary>
     private void WarnIfNotListening()
     {
         if (_tray is null || Desk is null || !Desk.Settings.UseNetwork || Desk.Net.Listening) return;
-        bool jungum = System.Diagnostics.Process.GetProcessesByName("JUMemoPad").Length > 0;
         _tray.ShowBalloonTip(8000, "MemoPad: 메모를 받을 수 없습니다",
-            jungum ? "정음 메모패드가 켜져 있습니다. 정음 메모패드를 끈 뒤 트레이 메뉴의 [메모 받기 다시 시도]를 누르세요."
-                   : Desk.Net.StartError, Forms.ToolTipIcon.Warning);
+            Desk.Net.StartError + " 그 프로그램을 끈 뒤 트레이 메뉴의 [메모 받기 다시 시도]를 누르세요.", Forms.ToolTipIcon.Warning);
     }
 
     private void UpdateTray()

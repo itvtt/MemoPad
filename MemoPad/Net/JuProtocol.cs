@@ -15,6 +15,7 @@ namespace MemoPad.Net;
 /// </summary>
 public static class JuProtocol
 {
+    // 정음 메모패드의 포트 (MemoPad 자기 포트는 Ports)
     public const int MemoPort = 9710;
     public const int ChatPort = 9712;
     public const int AttachPort = 9726;

@@ -23,6 +23,8 @@ static partial class Program
         _root = Path.Combine(Path.GetTempPath(), "memopad-checks-" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(_root);
         Environment.SetEnvironmentVariable("MEMOPAD_DATA_DIR", Path.Combine(_root, "settings"));
+        // 확인은 MemoPad 포트로만 (정음 포트는 시험마다 직접 켬). 실제 정음 메모패드와 시험(--jungum…)은 Live 에서 켬
+        Environment.SetEnvironmentVariable("MEMOPAD_JUNGUM_PORTS", "0");
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         // await 뒤에도 UI 스레드로 돌아오게 (앱과 같게)
         SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
@@ -33,6 +35,7 @@ static partial class Program
             if (args is ["--jungum", var ip, var id]) return Live.Run(ip, id);
             if (args is ["--jungum-wait", var wait]) return Live.Wait(int.Parse(wait));
             if (args is ["--jungum-chat", var chatIp]) return Live.Chat(chatIp);
+            if (args is ["--status", var statusIp]) return Live.Status(statusIp);
 
             Check("한/영 오타 변환: 두벌식 · 겹받침 · 겹모음 · 되돌리기", Typing);
             Check("메모 머리: 이름 · ID(한글) · 메모 id · 위치 · 시각(OLE) · 회람 칸이 그대로", HeaderRoundTrip);
@@ -45,6 +48,7 @@ static partial class Program
             Check("주고받기: 메모 · 큰 첨부 · 상태 · 부재중", () => Run(Network));
             Check("회람: 시작 → 둘째 → 셋째 → 결과, 받음 · 전달 알림", () => Run(CirculationFlow));
             Check("대화: 방장 · 손님 둘 · 말 돌려주기 · 나가기", () => Run(ChatFlow));
+            Check("포트: 정음 메모패드와 한 PC 에 함께 · 정음 포트로 보내기 · 정음 대화방", () => Run(PortsFlow));
         }
         finally
         {

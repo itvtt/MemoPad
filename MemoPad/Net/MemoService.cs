@@ -42,8 +42,8 @@ public sealed record PeerStatus(PeerState State, int Milliseconds)
 }
 
 /// <summary>
-/// 메모 포트(9710): 받기 (메모 · 회람 · 상태 확인 · 부재중 응답 · 첨부)와 보내기.
-/// 정음 메모패드와 같은 순서로 주고받음 (JuProtocol)
+/// 메모 포트: 받기 (메모 · 회람 · 상태 확인 · 부재중 응답 · 첨부)와 보내기.
+/// 정음 메모패드와 같은 순서로 주고받음 (JuProtocol). 포트는 Ports: MemoPad 포트(9810) + 이 PC 에 정음 메모패드가 없으면 정음 포트(9710)
 /// </summary>
 public sealed class MemoService : IDisposable
 {
@@ -53,6 +53,8 @@ public sealed class MemoService : IDisposable
     private readonly Func<string?> _absentText;
     private readonly CancellationTokenSource _stop = new();
     private TcpListener? _listener;
+    private TcpListener? _jungumListener;
+    private string _jungumError = "";
 
     /// <param name="absentText">부재중이면 상대에게 보낼 문구, 아니면 null</param>
     public MemoService(Func<string?> absentText, IPAddress? bind = null)
@@ -68,11 +70,10 @@ public sealed class MemoService : IDisposable
     public static IPAddress BindAddress =>
         IPAddress.TryParse(Environment.GetEnvironmentVariable("MEMOPAD_BIND"), out var address) ? address : IPAddress.Any;
 
-    public static int ListenPort => int.TryParse(Environment.GetEnvironmentVariable("MEMOPAD_MEMO_PORT"), out int port) ? port : JuProtocol.MemoPort;
-    /// <summary>상대 PC 의 메모 포트 (보통 9710)</summary>
-    public static int RemotePort => int.TryParse(Environment.GetEnvironmentVariable("MEMOPAD_REMOTE_PORT"), out int port) ? port : JuProtocol.MemoPort;
-
+    /// <summary>MemoPad 포트로 받는 중</summary>
     public bool Listening => _listener is not null;
+    /// <summary>정음 메모패드 포트로도 받는 중 (이 PC 에 정음 메모패드가 없을 때)</summary>
+    public bool JungumListening => _jungumListener is not null;
     public string StartError { get; private set; } = "";
 
     /// <summary>받은 메모 (스레드 풀에서 불림)</summary>
@@ -82,32 +83,68 @@ public sealed class MemoService : IDisposable
     /// <summary>받다가 생긴 문제 (기록용)</summary>
     public event Action<string>? Problem;
 
+    /// <summary>MemoPad 포트로 받기 시작</summary>
     public bool Start()
     {
+        if (_listener is not null) return true;
         try
         {
-            var listener = new TcpListener(Bind, ListenPort);
-            listener.Server.ExclusiveAddressUse = true;
-            listener.Start();
-            _listener = listener;
+            _listener = Listen(Bind, Ports.MemoPort);
             StartError = "";
-            _ = AcceptLoop(listener);
+            _ = AcceptLoop(_listener);
             return true;
         }
         catch (SocketException error)
         {
             StartError = error.SocketErrorCode == SocketError.AddressAlreadyInUse
-                ? $"포트 {ListenPort} 을(를) 다른 프로그램이 쓰고 있습니다 (정음 메모패드가 켜져 있으면 끄세요)."
+                ? $"포트 {Ports.MemoPort} 을(를) 다른 프로그램이 쓰고 있습니다."
                 : error.Message;
             return false;
         }
     }
 
+    /// <summary>정음 메모패드 포트(9710)로도 받기 켜기 · 끄기. 못 열면 기록만 하고 넘어감</summary>
+    public void SetJungumPort(bool on)
+    {
+        if (Ports.MemoPort == JuProtocol.MemoPort) on = false;
+        if (on == JungumListening) return;
+        if (!on)
+        {
+            StopListener(ref _jungumListener);
+            return;
+        }
+        try
+        {
+            _jungumListener = Listen(Bind, JuProtocol.MemoPort);
+            _jungumError = "";
+            _ = AcceptLoop(_jungumListener);
+        }
+        catch (SocketException error)
+        {
+            if (error.Message != _jungumError) Problem?.Invoke($"정음 메모패드 포트 {JuProtocol.MemoPort} 을(를) 열지 못했습니다: {error.Message}");
+            _jungumError = error.Message;
+        }
+    }
+
     public void Stop()
     {
-        try { _listener?.Stop(); }
+        StopListener(ref _listener);
+        StopListener(ref _jungumListener);
+    }
+
+    internal static TcpListener Listen(IPAddress bind, int port)
+    {
+        var listener = new TcpListener(bind, port);
+        listener.Server.ExclusiveAddressUse = true;
+        listener.Start();
+        return listener;
+    }
+
+    internal static void StopListener(ref TcpListener? listener)
+    {
+        try { listener?.Stop(); }
         catch (SocketException) { }
-        _listener = null;
+        listener = null;
     }
 
     private async Task AcceptLoop(TcpListener listener)
@@ -132,7 +169,10 @@ public sealed class MemoService : IDisposable
         try
         {
             var stream = client.GetStream();
-            int command = await JuProtocol.ReadIntAsync(stream, token);
+            int command;
+            // 보내는 쪽이 두 포트에 함께 연결해 보고 다른 쪽을 골랐으면 아무것도 보내지 않고 닫음
+            try { command = await JuProtocol.ReadIntAsync(stream, token); }
+            catch (Exception error) when (error is EndOfStreamException or IOException) { return; }
             if (command == JuProtocol.CmdStatus)
             {
                 await JuProtocol.WriteIntAsync(stream, _absentText() is null ? JuProtocol.StatusPresent : JuProtocol.StatusAbsent, token);
@@ -206,7 +246,8 @@ public sealed class MemoService : IDisposable
 
     private static (Socket Listener, int Port) OpenAttachListener(IPAddress bind)
     {
-        for (int port = JuProtocol.AttachPort; port < JuProtocol.AttachPort + 40; port++)
+        // 정음 메모패드의 첨부 포트(9726~)와 겹치지 않게 MemoPad 쪽 범위에서 (받는 쪽이 보내는 쪽에 포트를 알려 줌)
+        for (int port = Ports.Attach; port < Ports.Attach + 40; port++)
         {
             var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp) { ExclusiveAddressUse = true };
             try
@@ -281,7 +322,7 @@ public sealed class MemoService : IDisposable
     public async Task<DeliveryResult> SendAsync(Person target, OutgoingMemo memo, CancellationToken token, IProgress<string>? progress = null)
     {
         TcpClient client;
-        try { client = await JuProtocol.ConnectAsync(target.Ip, RemotePort, ConnectTimeout, token); }
+        try { client = await Ports.ConnectAsync(target.Ip, Ports.MemoTargets, ConnectTimeout, token); }
         catch (Exception error) when (error is SocketException or OperationCanceledException)
         {
             return new DeliveryResult(target, DeliveryOutcome.Offline, error is OperationCanceledException && !token.IsCancellationRequested
@@ -387,7 +428,7 @@ public sealed class MemoService : IDisposable
     {
         try
         {
-            using var client = await JuProtocol.ConnectAsync(originatorIp, RemotePort, ConnectTimeout, CancellationToken.None);
+            using var client = await Ports.ConnectAsync(originatorIp, Ports.MemoTargets, ConnectTimeout, CancellationToken.None);
             using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             await client.GetStream().WriteAsync(JuProtocol.Note(passed ? JuProtocol.NotePassed : JuProtocol.NoteReceived, memo, myIp), limit.Token);
         }
@@ -400,7 +441,7 @@ public sealed class MemoService : IDisposable
         var watch = System.Diagnostics.Stopwatch.StartNew();
         try
         {
-            using var client = await JuProtocol.ConnectAsync(ip, RemotePort, ConnectTimeout, token);
+            using var client = await Ports.ConnectAsync(ip, Ports.MemoTargets, ConnectTimeout, token);
             using var limit = CancellationTokenSource.CreateLinkedTokenSource(token);
             limit.CancelAfter(TimeSpan.FromSeconds(5));
             var stream = client.GetStream();

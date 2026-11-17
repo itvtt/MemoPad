@@ -5,14 +5,25 @@ using MemoPad.Ui;
 
 /// <summary>
 /// 같은 망의 정음 메모패드(또는 다른 MemoPad)와 실제로 주고받기: --jungum &lt;IP&gt; &lt;ID&gt;
-/// 이 PC 의 주소는 MEMOPAD_LIVE_IP (기본 127.0.0.9: 같은 PC 에서 정음 메모패드가 9710 을 쓰고 있어도 됨)
+/// 이 PC 의 주소는 MEMOPAD_LIVE_IP (기본 127.0.0.9: 같은 PC 의 정음 메모패드는 다른 주소에서 9710 을 씀)
 /// </summary>
 static class Live
 {
+    private static string MyIp => Environment.GetEnvironmentVariable("MEMOPAD_LIVE_IP") is { Length: > 0 } custom ? custom : "127.0.0.9";
+
+    /// <summary>정음 메모패드가 이 주소의 정음 포트(9710 · 9712)로 보내니 정음 포트로도 받음</summary>
+    private static Desk NewDesk(string myIp)
+    {
+        Environment.SetEnvironmentVariable("MEMOPAD_JUNGUM_PORTS", "1");
+        var desk = Program.NewDesk("MemoPad시험", myIp);
+        Program.Assert(desk.Net.JungumListening, "정음 포트(9710)로 받기");
+        return desk;
+    }
+
     public static int Run(string ip, string id)
     {
-        string myIp = Environment.GetEnvironmentVariable("MEMOPAD_LIVE_IP") is { Length: > 0 } custom ? custom : "127.0.0.9";
-        var desk = Program.NewDesk("MemoPad시험", myIp);
+        string myIp = MyIp;
+        var desk = NewDesk(myIp);
         var target = new Person { Ip = ip, Id = id, Name = id };
         int failures = 0;
         void Report(bool ok, string text) { Console.WriteLine($"{(ok ? "OK  " : "FAIL")}  {text}"); if (!ok) failures++; }
@@ -45,11 +56,20 @@ static class Live
         return failures == 0 ? 0 : 1;
     }
 
+    /// <summary>상태 확인만: --status &lt;IP&gt; (MemoPad 포트, 없으면 정음 메모패드 포트. 그쪽 화면에는 아무것도 뜨지 않음)</summary>
+    public static int Status(string ip)
+    {
+        PeerStatus? status = null;
+        Program.Run(async () => status = await MemoService.QueryStatusAsync(ip, CancellationToken.None), 20);
+        Console.WriteLine($"{ip}: {status?.Text} ({status?.Milliseconds} ms)");
+        return status?.State is PeerState.Present or PeerState.Absent ? 0 : 1;
+    }
+
     /// <summary>대화: --jungum-chat &lt;IP&gt; (그쪽 대화방에 들어가 말하고 나옴)</summary>
     public static int Chat(string ip)
     {
-        string myIp = Environment.GetEnvironmentVariable("MEMOPAD_LIVE_IP") is { Length: > 0 } custom ? custom : "127.0.0.9";
-        var desk = Program.NewDesk("MemoPad시험", myIp);
+        string myIp = MyIp;
+        var desk = NewDesk(myIp);
         var session = new GuestSession(desk, new Person { Ip = ip, Name = ip });
         bool ok = false;
         Program.Run(async () =>
@@ -73,8 +93,8 @@ static class Live
     /// </summary>
     public static int Wait(int seconds)
     {
-        string myIp = Environment.GetEnvironmentVariable("MEMOPAD_LIVE_IP") is { Length: > 0 } custom ? custom : "127.0.0.9";
-        var desk = Program.NewDesk("MemoPad시험", myIp);
+        string myIp = MyIp;
+        var desk = NewDesk(myIp);
         if (Environment.GetEnvironmentVariable("MEMOPAD_LIVE_ID") is { Length: > 0 } id) desk.Settings.Id = id;
         var handled = new HashSet<Guid>();
         int done = 0;

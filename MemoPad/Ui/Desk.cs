@@ -15,6 +15,7 @@ public sealed partial class Desk
 {
     private readonly Dictionary<Guid, MemoWindow> _windows = [];
     private readonly DispatcherTimer _alarmTimer;
+    private readonly DispatcherTimer _portTimer;
     private ManagerWindow? _manager;
     private SettingsWindow? _settingsWindow;
     private AddressBookWindow? _addressWindow;
@@ -31,6 +32,9 @@ public sealed partial class Desk
         Chat = new ChatService(this);
         _alarmTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
         _alarmTimer.Tick += (_, _) => CheckAlarms();
+        // 이 PC 에 정음 메모패드가 생기면 정음 포트를 내주고, 없어지면 다시 받음
+        _portTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        _portTimer.Tick += (_, _) => { if (Settings.UseNetwork && Net.Listening) UpdateJungumPorts(); };
     }
 
     public AppSettings Settings { get; }
@@ -55,20 +59,34 @@ public sealed partial class Desk
 
     public void StartNetwork()
     {
-        if (!Net.Listening) Net.Start();
+        Net.Start();
         Chat.Start();
+        UpdateJungumPorts();
+        _portTimer.Start();
         StateChanged?.Invoke();
     }
 
     public void StopNetwork()
     {
+        _portTimer.Stop();
         Net.Stop();
         Chat.Stop();
         StateChanged?.Invoke();
     }
 
+    /// <summary>정음 메모패드 포트(9710 · 9712)로도 받기: 이 PC 에 정음 메모패드가 없을 때만 (Ports.ListenJungum)</summary>
+    private void UpdateJungumPorts()
+    {
+        bool on = Ports.ListenJungum;
+        bool before = Net.JungumListening;
+        Net.SetJungumPort(on);
+        Chat.SetJungumPort(on);
+        if (Net.JungumListening != before) StateChanged?.Invoke();
+    }
+
     public void Shutdown()
     {
+        _portTimer.Stop();
         foreach (var window in _windows.Values.ToList()) window.SaveNow();
         Chat.Stop();
         Net.Dispose();
