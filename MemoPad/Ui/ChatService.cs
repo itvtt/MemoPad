@@ -338,7 +338,12 @@ public sealed class ChatService
             _hostWindow = new ChatWindow(_desk, EnsureHost());
             _hostWindow.Closed += (_, _) => _hostWindow = null;
         }
-        if (!_hostWindow.IsVisible) _hostWindow.Show();
+        if (!_hostWindow.IsVisible)
+        {
+            _hostWindow.ShowActivated = activate;
+            _hostWindow.Show();
+            _hostWindow.ShowActivated = true;
+        }
         if (activate) _hostWindow.Activate();
         else _hostWindow.Flash();
     }

@@ -86,6 +86,7 @@ public partial class App : Application
         CreateTray();
         Desk.Start();
         UpdateTray();
+        WarnIfNotListening();
         if (firstRun)
         {
             Desk.ShowSettings();
@@ -136,6 +137,16 @@ public partial class App : Application
         return new System.Drawing.Icon(stream, Forms.SystemInformation.SmallIconSize);
     }
 
+    /// <summary>메모를 받을 수 없으면 (보통 같은 PC 의 정음 메모패드가 포트를 씀) 트레이 알림</summary>
+    private void WarnIfNotListening()
+    {
+        if (_tray is null || Desk is null || !Desk.Settings.UseNetwork || Desk.Net.Listening) return;
+        bool jungum = System.Diagnostics.Process.GetProcessesByName("JUMemoPad").Length > 0;
+        _tray.ShowBalloonTip(8000, "MemoPad: 메모를 받을 수 없습니다",
+            jungum ? "정음 메모패드가 켜져 있습니다. 정음 메모패드를 끈 뒤 트레이 메뉴의 [메모 받기 다시 시도]를 누르세요."
+                   : Desk.Net.StartError, Forms.ToolTipIcon.Warning);
+    }
+
     private void UpdateTray()
     {
         if (_tray is null || Desk is null) return;
@@ -174,6 +185,8 @@ public partial class App : Application
         items.Add(MemoWindow.Item("주소록", desk.ShowAddressBook, Icons.People));
         items.Add(MemoWindow.Item("사용자 상태 확인", desk.ShowStatus, Icons.Status, enabled: desk.Settings.UseNetwork));
         items.Add(MemoWindow.Item("부재중", () => desk.SetAbsent(!desk.Settings.Absent), check: desk.Settings.Absent, enabled: desk.Settings.UseNetwork));
+        if (desk.Settings.UseNetwork && !desk.Net.Listening)
+            items.Add(MemoWindow.Item("메모 받기 다시 시도", () => { desk.StartNetwork(); WarnIfNotListening(); }, Icons.Refresh));
         items.Add(new Separator());
         items.Add(MemoWindow.Item("설정", desk.ShowSettings, Icons.Settings));
         items.Add(MemoWindow.Item("종료", Quit, ""));
