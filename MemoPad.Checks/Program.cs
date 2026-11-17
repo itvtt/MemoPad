@@ -31,7 +31,8 @@ static partial class Program
         app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/MemoPad;component/Theme.xaml") });
         try
         {
-            if (args is ["--snapshot", var folder]) return Snapshots.Run(folder);
+            if (args is ["--snapshot", var folder]) return Snapshots.Run(folder);   // 앱과 같게 (네트워크 기능 꺼짐)
+            Features.Network = true;   // 꺼 둔 네트워크 코드도 시험해 깨지지 않게
             if (args is ["--jungum", var ip, var id]) return Live.Run(ip, id);
             if (args is ["--jungum-wait", var wait]) return Live.Wait(int.Parse(wait));
             if (args is ["--jungum-chat", var chatIp]) return Live.Chat(chatIp);
@@ -49,6 +50,7 @@ static partial class Program
             Check("회람: 시작 → 둘째 → 셋째 → 결과, 받음 · 전달 알림", () => Run(CirculationFlow));
             Check("대화: 방장 · 손님 둘 · 말 돌려주기 · 나가기", () => Run(ChatFlow));
             Check("포트: 정음 메모패드와 한 PC 에 함께 · 정음 포트로 보내기 · 정음 대화방", () => Run(PortsFlow));
+            Check("네트워크 기능 꺼짐(앱 기본): 포트를 하나도 열지 않음", NetworkOff);
         }
         finally
         {

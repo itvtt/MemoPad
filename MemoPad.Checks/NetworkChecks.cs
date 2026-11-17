@@ -110,6 +110,29 @@ static partial class Program
         }
     }
 
+    /// <summary>앱 기본(Features.Network 꺼짐): 설정에서 네트워크를 켜 두었어도 포트를 열지 않음</summary>
+    private static void NetworkOff()
+    {
+        Features.Network = false;
+        string folder = Folder("desk-off");
+        var bind = IPAddress.Parse("127.0.0.11");
+        var desk = new Desk(new AppSettings { Name = "끔", Ip = "127.0.0.11", UseNetwork = true, StartupConfigured = true, Sound = false, AddressBookFolder = folder }, new MemoStore(folder), bind);
+        try
+        {
+            desk.Start();
+            Assert(!desk.Networked, "네트워크 기능 꺼짐");
+            Assert(!desk.Net.Listening && !desk.Net.JungumListening && !desk.Chat.Listening && !desk.Chat.JungumListening, "메모 · 대화 포트를 열지 않음");
+            var open = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Where(e => e.Address.Equals(bind)).ToList();
+            Equal(0, open.Count, "127.0.0.11 에서 듣는 포트 수 " + string.Join(",", open.Select(e => e.Port)));
+        }
+        finally
+        {
+            foreach (var window in desk.Windows.ToList()) window.Close();
+            desk.Shutdown();
+            Features.Network = true;
+        }
+    }
+
     /// <summary>책상(앱 한 개) 하나: 따로 쓰는 폴더 · 주소</summary>
     internal static Desk NewDesk(string name, string ip)
     {
@@ -121,7 +144,7 @@ static partial class Program
         };
         var desk = new Desk(settings, new MemoStore(folder), IPAddress.Parse(ip));
         desk.Start();
-        Assert(desk.Net.Listening, $"{name} 듣기: {desk.Net.StartError}");
+        Assert(!Features.Network || desk.Net.Listening, $"{name} 듣기: {desk.Net.StartError}");
         return desk;
     }
 

@@ -52,7 +52,7 @@ public sealed partial class Desk
     public async Task SendAsync(MemoWindow window, SendKind kind, IReadOnlyList<Person>? preset = null)
     {
         var memo = window.Memo;
-        if (!Settings.UseNetwork) { Dialogs.Info(window, "보내기", "네트워크 기능이 꺼져 있습니다 (설정 → 내 정보)."); return; }
+        if (!Networked) return;
         if (memo.Secured && !window.Unlock()) return;
         window.SaveNow();
 

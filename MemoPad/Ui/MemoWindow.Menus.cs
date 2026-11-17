@@ -45,7 +45,7 @@ public partial class MemoWindow
         items.Add(Item("메모 관리기", () => _desk.ShowManager(Memo), Icons.Folder));
         items.Add(new Separator());
 
-        if (_desk.Settings.UseNetwork)
+        if (_desk.Networked)
         {
             items.Add(Item("보내기…", () => _ = _desk.SendAsync(this, SendKind.Send), Icons.Send, "Ctrl+S"));
             if (received) items.Add(Item("답장", () => _ = _desk.SendAsync(this, SendKind.Reply), Icons.Reply, "Ctrl+Y"));

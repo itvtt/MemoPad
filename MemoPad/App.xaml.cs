@@ -71,7 +71,7 @@ public partial class App : Application
         bool firstRun = !File.Exists(Path.Combine(AppSettings.DataDirectory, "settings.json"));
         var settings = AppSettings.Load();
         bool installed = ILuncher.AppKit.AppUpdater.IsInstalledCopy("MemoPad");
-        // 처음 한 번: Windows 시작할 때 실행 (정음 메모패드처럼 늘 켜져 있어야 메모를 받음). 설치된 사본일 때만
+        // 처음 한 번: Windows 시작할 때 실행 (로그인하면 메모가 바탕화면에 다시 뜨고 알람이 울리게). 설치된 사본일 때만
         if (!settings.StartupConfigured && installed)
         {
             settings.StartupConfigured = true;
@@ -89,7 +89,7 @@ public partial class App : Application
         WarnIfNotListening();
         if (firstRun)
         {
-            Desk.ShowSettings();
+            if (Desk.Networked) Desk.ShowSettings();   // 내 정보(이름 · ID)를 정하게
             if (!Desk.Store.Live.Any()) Desk.NewMemo();
         }
 
@@ -140,7 +140,7 @@ public partial class App : Application
     /// <summary>메모를 받을 수 없으면 (다른 프로그램이 MemoPad 포트를 씀) 트레이 알림</summary>
     private void WarnIfNotListening()
     {
-        if (_tray is null || Desk is null || !Desk.Settings.UseNetwork || Desk.Net.Listening) return;
+        if (_tray is null || Desk is null || !Desk.Networked || Desk.Net.Listening) return;
         _tray.ShowBalloonTip(8000, "MemoPad: 메모를 받을 수 없습니다",
             Desk.Net.StartError + " 그 프로그램을 끈 뒤 트레이 메뉴의 [메모 받기 다시 시도]를 누르세요.", Forms.ToolTipIcon.Warning);
     }
@@ -149,8 +149,8 @@ public partial class App : Application
     {
         if (_tray is null || Desk is null) return;
         string text = "MemoPad";
-        if (Desk.Settings.Absent) text += " · 부재중";
-        else if (Desk.Settings.UseNetwork && !Desk.Net.Listening) text += " · 메모를 받을 수 없음";
+        if (Desk.Networked && Desk.Settings.Absent) text += " · 부재중";
+        else if (Desk.Networked && !Desk.Net.Listening) text += " · 메모를 받을 수 없음";
         _tray.Text = text.Length > 63 ? text[..63] : text;
     }
 
@@ -170,7 +170,7 @@ public partial class App : Application
         items.Add(MemoWindow.Item("새 메모", () => desk.NewMemo(), Icons.Add, "클릭"));
         items.Add(MemoWindow.Item("새 그림", () => desk.NewMemo(MemoKind.Drawing), Icons.Pen));
         items.Add(new Separator());
-        items.Add(MemoWindow.Item("대화창 열기", () => desk.OpenChat(), Icons.Chat, enabled: desk.Settings.UseNetwork));
+        if (desk.Networked) items.Add(MemoWindow.Item("대화창 열기", () => desk.OpenChat(), Icons.Chat));
         items.Add(MemoWindow.Item("메모 관리기", () => desk.ShowManager(), Icons.Folder, "Alt+클릭"));
         items.Add(new Separator());
         items.Add(MemoWindow.Item("모두 보이기", desk.ShowAll, Icons.Show, "Ctrl+클릭"));
@@ -179,12 +179,15 @@ public partial class App : Application
         var discard = MemoWindow.Item("모두 버리기", desk.DiscardAll, Icons.Delete);
         discard.Style = (Style)Resources["DangerMenuItemStyle"];
         items.Add(discard);
-        items.Add(new Separator());
-        items.Add(MemoWindow.Item("주소록", desk.ShowAddressBook, Icons.People));
-        items.Add(MemoWindow.Item("사용자 상태 확인", desk.ShowStatus, Icons.Status, enabled: desk.Settings.UseNetwork));
-        items.Add(MemoWindow.Item("부재중", () => desk.SetAbsent(!desk.Settings.Absent), check: desk.Settings.Absent, enabled: desk.Settings.UseNetwork));
-        if (desk.Settings.UseNetwork && !desk.Net.Listening)
-            items.Add(MemoWindow.Item("메모 받기 다시 시도", () => { desk.StartNetwork(); WarnIfNotListening(); }, Icons.Refresh));
+        if (desk.Networked)
+        {
+            items.Add(new Separator());
+            items.Add(MemoWindow.Item("주소록", desk.ShowAddressBook, Icons.People));
+            items.Add(MemoWindow.Item("사용자 상태 확인", desk.ShowStatus, Icons.Status));
+            items.Add(MemoWindow.Item("부재중", () => desk.SetAbsent(!desk.Settings.Absent), check: desk.Settings.Absent));
+            if (!desk.Net.Listening)
+                items.Add(MemoWindow.Item("메모 받기 다시 시도", () => { desk.StartNetwork(); WarnIfNotListening(); }, Icons.Refresh));
+        }
         items.Add(new Separator());
         items.Add(MemoWindow.Item("설정", desk.ShowSettings, Icons.Settings));
         items.Add(MemoWindow.Item("종료", Quit, ""));

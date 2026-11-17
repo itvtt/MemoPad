@@ -34,13 +34,15 @@ public sealed partial class Desk
         _alarmTimer.Tick += (_, _) => CheckAlarms();
         // 이 PC 에 정음 메모패드가 생기면 정음 포트를 내주고, 없어지면 다시 받음
         _portTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
-        _portTimer.Tick += (_, _) => { if (Settings.UseNetwork && Net.Listening) UpdateJungumPorts(); };
+        _portTimer.Tick += (_, _) => { if (Networked && Net.Listening) UpdateJungumPorts(); };
     }
 
     public AppSettings Settings { get; }
     public MemoStore Store { get; }
     public MemoService Net { get; }
     public ChatService Chat { get; }
+    /// <summary>네트워크 기능을 씀 (Features.Network 가 꺼져 있으면 늘 아님: 포트를 열지 않고 메뉴에서도 숨김)</summary>
+    public bool Networked => Features.Network && Settings.UseNetwork;
     public string MyIp => NetAddress.MyAddress(Settings.Ip);
     public Person Me => Settings.Me(MyIp);
     public IEnumerable<MemoWindow> Windows => _windows.Values;
@@ -51,7 +53,7 @@ public sealed partial class Desk
     public void Start()
     {
         foreach (var memo in Store.Live.Where(m => m.Visible).OrderBy(m => m.Modified)) Open(memo, activate: false);
-        if (Settings.UseNetwork) StartNetwork();
+        if (Networked) StartNetwork();
         _alarmTimer.Start();
         CheckAlarms();
         if (Settings.ManagerAtStart) ShowManager();

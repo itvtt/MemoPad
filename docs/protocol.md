@@ -1,6 +1,6 @@
 # 정음 메모패드 통신 형식
 
-MemoPad 가 정음 메모패드(9.5.1.133)와 주고받는 형식입니다. 정음 메모패드끼리 주고받는 바이트를 기록하고, 바이트를 바꿔 보내며 확인했습니다.
+MemoPad 가 정음 메모패드(9.5.1.133)와 주고받는 형식입니다. **앱에서는 이 기능을 꺼 두었습니다** (`Core\Features.cs` 의 `Network`, 포트를 열지 않음). 다시 켤 때를 위해 남겨 둔 문서입니다. 정음 메모패드끼리 주고받는 바이트를 기록하고, 바이트를 바꿔 보내며 확인했습니다.
 코드: `MemoPad\Net\JuProtocol.cs` (메모 머리 · 회람 칸), `MemoService.cs` (메모 포트), `ChatProtocol.cs` · `Ui\ChatService.cs` (대화).
 확인: `MemoPad.Checks` (이 PC 안에서), `MemoPad.Checks --jungum <IP> <ID>` · `--jungum-wait` · `--jungum-chat` · `--status` (실제 정음 메모패드와).
 아래 절의 포트 번호는 정음 메모패드 쪽입니다. MemoPad 끼리는 같은 형식을 MemoPad 포트로 주고받습니다.

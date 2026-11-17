@@ -37,6 +37,17 @@ internal sealed class SettingsWindow : Window
         root.Children.Add(new ScrollViewer { Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
         Content = new Border { BorderBrush = new SolidColorBrush(Color.FromRgb(0x3A, 0x3B, 0x42)), BorderThickness = new Thickness(1), Child = root };
 
+        if (desk.Networked) AddNetworkSections(body);
+        AddLocalSections(body);
+
+        PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) Close(); };
+        Closed += (_, _) => S.Save();
+    }
+
+    /// <summary>내 정보 · 받기 · 보내기 (네트워크 기능을 쓸 때만)</summary>
+    private void AddNetworkSections(StackPanel body)
+    {
+        var desk = _desk;
         // ── 내 정보 ──
         var me = Section(body, "내 정보 (메모를 받는 사람에게 보임)");
         var grid = Fields(me);
@@ -79,7 +90,11 @@ internal sealed class SettingsWindow : Window
         Field(netGrid, 0, "부재중 문구", Text(S.AbsentText, v => S.AbsentText = v, "저는 현재 부재중입니다."));
         Field(netGrid, 1, "받은 메모 전달", Text(S.ForwardTo, v => S.ForwardTo = v, "다른 PC 의 IP (여럿이면 ; 로)"));
         Field(netGrid, 2, "주소록 폴더", FolderChooser());
+    }
 
+    /// <summary>새 메모 · 일반 · 보안</summary>
+    private void AddLocalSections(StackPanel body)
+    {
         // ── 새 메모 ──
         var memo = Section(body, "새 메모");
         var swatches = new WrapPanel();
@@ -146,11 +161,8 @@ internal sealed class SettingsWindow : Window
         passwordRow.Children.Add(passwordButtons);
         passwordRow.Children.Add(_passwordState);
         security.Children.Add(passwordRow);
-        security.Children.Add(Check("받은 메모는 늘 보안 메모로", S.SecureReceived, v => S.SecureReceived = v));
+        if (_desk.Networked) security.Children.Add(Check("받은 메모는 늘 보안 메모로", S.SecureReceived, v => S.SecureReceived = v));
         UpdatePassword();
-
-        PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) Close(); };
-        Closed += (_, _) => S.Save();
     }
 
     private void Refresh()

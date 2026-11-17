@@ -532,10 +532,10 @@ public partial class MemoWindow : Window
             switch (e.Key)
             {
                 case Key.N: e.Handled = true; _desk.NewMemo(); return;
-                case Key.S: e.Handled = true; _ = _desk.SendAsync(this, SendKind.Send); return;
-                case Key.F: e.Handled = true; _ = _desk.SendAsync(this, SendKind.Forward); return;
+                case Key.S when _desk.Networked: e.Handled = true; _ = _desk.SendAsync(this, SendKind.Send); return;
+                case Key.F when _desk.Networked: e.Handled = true; _ = _desk.SendAsync(this, SendKind.Forward); return;
                 case Key.P: e.Handled = true; Print(); return;
-                case Key.Y when Memo.From is not null: e.Handled = true; _ = _desk.SendAsync(this, SendKind.Reply); return;
+                case Key.Y when _desk.Networked && Memo.From is not null: e.Handled = true; _ = _desk.SendAsync(this, SendKind.Reply); return;
                 case Key.Y when Memo.Kind == MemoKind.Drawing: e.Handled = true; InkRedo(); return;
                 case Key.Z when Memo.Kind == MemoKind.Drawing: e.Handled = true; InkUndo(); return;
                 case Key.D when Memo.Kind == MemoKind.Text: e.Handled = true; InsertText(Formats.Date(DateTime.Now, _desk.Settings.DateFormat)); return;
