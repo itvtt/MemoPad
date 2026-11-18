@@ -18,7 +18,8 @@ namespace MemoPad.Ui;
 /// </summary>
 public partial class MemoWindow : Window
 {
-    private const double HeaderHeight = 28;
+    /// <summary>접은 메모 사각형 한 변 (DIP). 정음 메모패드는 22 픽셀</summary>
+    private const double CollapsedSize = 24;
     private readonly Desk _desk;
     private readonly DispatcherTimer _saveTimer;
     private bool _loading, _dirty, _unlocked, _placed;
@@ -150,45 +151,77 @@ public partial class MemoWindow : Window
         }
         if (Memo.X == int.MinValue || Memo.Y == int.MinValue) _desk.PlaceNew(Memo);
         // 화면 밖이면 (모니터를 뺀 경우) 주 모니터 안으로
-        var work = Native.WorkAreaAt(Memo.X + 20, Memo.Y + 10);
-        Memo.X = Math.Clamp(Memo.X, work.Left - Memo.Width + 60, work.Right - 60);
-        Memo.Y = Math.Clamp(Memo.Y, work.Top, work.Bottom - 30);
+        if (Memo.Collapsed)
+        {
+            int size = SquarePixels;
+            var area = Native.WorkAreaAt(Memo.X + Memo.Width - size / 2, Memo.Y + size / 2);
+            Memo.X = Math.Clamp(Memo.X + Memo.Width - size, area.Left, area.Right - size) + size - Memo.Width;
+            Memo.Y = Math.Clamp(Memo.Y, area.Top, area.Bottom - size);
+        }
+        else
+        {
+            var work = Native.WorkAreaAt(Memo.X + 20, Memo.Y + 10);
+            Memo.X = Math.Clamp(Memo.X, work.Left - Memo.Width + 60, work.Right - 60);
+            Memo.Y = Math.Clamp(Memo.Y, work.Top, work.Bottom - 30);
+        }
         _placed = true;
         ApplyBounds();
     }
 
+    /// <summary>접은 메모 사각형 한 변 (픽셀)</summary>
+    private int SquarePixels => (int)Math.Round(CollapsedSize * Scale);
+
+    /// <summary>
+    /// 메모 자리(Memo.X · Y · Width · Height)는 늘 펼친 메모 기준. 접으면 그 오른쪽 위 모서리에 작은 사각형
+    /// (정음 메모패드처럼 접기 단추 자리), 사각형을 옮기면 펼칠 메모도 따라감
+    /// </summary>
     private void ApplyBounds()
     {
         if (!_placed) return;
-        int width = Memo.Width, height = Memo.Height;
+        int x = Memo.X, y = Memo.Y, width = Memo.Width, height = Memo.Height;
         if (Memo.Collapsed)
         {
-            width = Math.Min(width, (int)Math.Round(220 * Scale));
-            height = (int)Math.Round(HeaderHeight * Scale);
+            width = height = SquarePixels;
+            x = Memo.X + Memo.Width - width;
         }
-        Native.SetWindowPos(Native.Handle(this), IntPtr.Zero, Memo.X, Memo.Y, width, height, Native.SWP_NOZORDER | Native.SWP_NOACTIVATE);
+        Native.SetWindowPos(Native.Handle(this), IntPtr.Zero, x, y, width, height, Native.SWP_NOZORDER | Native.SWP_NOACTIVATE);
     }
 
-    /// <summary>창의 지금 자리를 메모에 (펼친 상태일 때만 크기도)</summary>
+    /// <summary>창의 지금 자리를 메모에 (펼친 상태면 크기도, 접은 상태면 사각형 자리로 메모 자리를)</summary>
     private void CaptureBounds()
     {
         var rect = Native.WindowRect(this);
-        Memo.X = rect.Left;
-        Memo.Y = rect.Top;
-        if (!Memo.Collapsed)
+        if (Memo.Collapsed)
         {
+            Memo.X = rect.Right - Memo.Width;
+            Memo.Y = rect.Top;
+        }
+        else
+        {
+            Memo.X = rect.Left;
+            Memo.Y = rect.Top;
             Memo.Width = rect.Right - rect.Left;
             Memo.Height = rect.Bottom - rect.Top;
         }
         _desk.Save(Memo);
     }
 
+    /// <summary>창의 왼쪽 위를 (x, y) 로 (바탕화면 메모 정렬). 접은 메모는 사각형이 그 자리에</summary>
     public void MoveTo(int x, int y)
     {
+        if (Memo.Collapsed) x += SquarePixels - Memo.Width;
         Memo.X = x;
         Memo.Y = y;
         ApplyBounds();
         _desk.Save(Memo);
+    }
+
+    /// <summary>펼칠 때 메모가 화면 밖으로 나가지 않게</summary>
+    private void KeepOnScreen()
+    {
+        var work = Native.WorkAreaAt(Memo.X + Memo.Width - 10, Memo.Y + 10);
+        Memo.X = Math.Clamp(Memo.X, work.Left, Math.Max(work.Left, work.Right - Memo.Width));
+        Memo.Y = Math.Clamp(Memo.Y, work.Top, Math.Max(work.Top, work.Bottom - Memo.Height));
     }
 
     public Native.RECT PixelBounds => Native.WindowRect(this);
@@ -242,10 +275,26 @@ public partial class MemoWindow : Window
         InkBar.Visibility = open && drawing && !Memo.ReadOnly ? Visibility.Visible : Visibility.Collapsed;
         AttachmentPanel.Visibility = open && Memo.Attachments.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         StatusBar.Visibility = open && Memo.StatusBar ? Visibility.Visible : Visibility.Collapsed;
-        CollapseButton.Content = Memo.Collapsed ? Icons.Expand : Icons.Minimize;
-        CollapseButton.ToolTip = Memo.Collapsed ? "펼치기" : "접기 (제목 두 번 클릭)";
-        MinHeight = Memo.Collapsed ? 20 : 60;
+        Header.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        CollapsedFace.Visibility = open ? Visibility.Collapsed : Visibility.Visible;
+        // 접은 사각형은 아주 작으므로 최소 크기를 풂
+        MinWidth = open ? 120 : 0;
+        MinHeight = open ? 60 : 0;
+        if (!open) ApplyFace();
         ApplyBounds();
+    }
+
+    /// <summary>접은 사각형 안: 글 메모는 글줄, 그림 메모는 선 하나, 잠긴 보안 메모는 자물쇠 (오른쪽 아래는 접힌 귀)</summary>
+    private void ApplyFace()
+    {
+        bool locked = Memo.Secured && !_unlocked;
+        FaceGlyph.Visibility = locked ? Visibility.Visible : Visibility.Collapsed;
+        FaceGlyph.Text = locked ? Icons.Lock : "";
+        FaceLines.Visibility = locked ? Visibility.Collapsed : Visibility.Visible;
+        FaceLines.Data = Geometry.Parse(Memo.Kind == MemoKind.Drawing
+            ? "M 5,16 C 7.5,6 10.5,18 13,10 S 17,9 18,7"
+            : "M 5.5,7.5 H 15.5 M 5.5,11.5 H 17 M 5.5,15.5 H 11.5");
+        CollapsedFace.ToolTip = (locked ? "보안 메모" : Memo.FirstLine) + "\n두 번 클릭하면 펼칩니다";
     }
 
     private void ApplySecure()
@@ -283,8 +332,8 @@ public partial class MemoWindow : Window
         if (Memo.Locked) State(Icons.Lock, "잠김 (옮기기 · 크기 바꾸기 안 됨)");
         if (Memo.ReadOnly) State(Icons.ReadOnly, "읽기 전용");
         if (Memo.Secured) State("", "보안 메모");
-        if (Memo.Collapsed && Memo.Attachments.Count > 0) State(Icons.Attach, $"첨부 {Memo.Attachments.Count}개");
         Title = $"MemoPad - {Memo.FirstLine}";
+        if (Memo.Collapsed) ApplyFace();
     }
 
     private void ApplyStatus()
@@ -352,7 +401,7 @@ public partial class MemoWindow : Window
             Show();
             ShowActivated = true;
         }
-        if (Memo.Collapsed && flash) { Memo.Collapsed = false; ApplyLook(); }
+        if (Memo.Collapsed && flash) ToggleCollapse();
         var handle = Native.Handle(this);
         Native.SetWindowPos(handle, Native.HWND_TOPMOST, 0, 0, 0, 0, Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_SHOWWINDOW | Native.SWP_NOACTIVATE);
         if (Memo.Layer != MemoLayer.Top)
@@ -399,13 +448,16 @@ public partial class MemoWindow : Window
 
     private void CloseButton_Click(object sender, RoutedEventArgs e) => _desk.Discard(this);
 
+    /// <summary>접기 ↔ 펼치기. 접으면 오른쪽 위 모서리의 작은 사각형, 펼치면 그 사각형 자리를 오른쪽 위로 해서 열림</summary>
     public void ToggleCollapse()
     {
         SaveNow();
-        if (!Memo.Collapsed) CaptureBounds();
+        CaptureBounds();
         Memo.Collapsed = !Memo.Collapsed;
+        if (!Memo.Collapsed) KeepOnScreen();
         ApplyLook();
         _desk.Save(Memo);
+        if (!Memo.Collapsed && IsActive) (Memo.Kind == MemoKind.Drawing ? (IInputElement)Ink : Editor).Focus();
     }
 
     public void SetLayer(MemoLayer layer)
@@ -526,6 +578,7 @@ public partial class MemoWindow : Window
     {
         var mods = Keyboard.Modifiers;
         if (e.Key == Key.System && e.SystemKey == Key.F4) { e.Handled = true; _desk.Discard(this); return; }
+        if (Memo.Collapsed && mods == ModifierKeys.None && e.Key is Key.Enter or Key.Space) { e.Handled = true; ToggleCollapse(); return; }
         if (e.Key == Key.F4 && mods == ModifierKeys.None) { e.Handled = true; ConvertTypo(); return; }
         if (mods == ModifierKeys.Control)
         {

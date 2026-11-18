@@ -26,15 +26,16 @@ public sealed partial class Desk
     private MemoHeader HeaderFor(MemoWindow window)
     {
         var memo = window.Memo;
-        var bounds = window.IsVisible ? window.PixelBounds : new Native.RECT { Left = memo.X, Top = memo.Y, Right = memo.X + memo.Width, Bottom = memo.Y + memo.Height };
+        // 접은 메모는 창이 작은 사각형이므로 펼친 메모 자리를 보냄
+        var bounds = window.IsVisible && !memo.Collapsed ? window.PixelBounds : new Native.RECT { Left = memo.X, Top = memo.Y, Right = memo.X + memo.Width, Bottom = memo.Y + memo.Height };
         return new MemoHeader
         {
             Sender = Me,
             MemoId = memo.Id,
             X = bounds.Left,
             Y = bounds.Top,
-            Width = memo.Collapsed ? memo.Width : bounds.Right - bounds.Left,
-            Height = memo.Collapsed ? memo.Height : bounds.Bottom - bounds.Top,
+            Width = bounds.Right - bounds.Left,
+            Height = bounds.Bottom - bounds.Top,
             Color = MemoColors.ToJungum(memo.Color),
             Created = memo.Created,
             Modified = memo.Modified

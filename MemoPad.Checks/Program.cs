@@ -44,6 +44,7 @@ static partial class Program
             Check("RTF: 따옴표 (빈 줄 포함) · 앞에 줄 넣기 · 일반 글자 · 그림", Rtf);
             Check("주소록: 찾기 · 초성 · CSV 내보내기/불러오기", AddressBookCsv);
             Check("저장소: 저장 · 다시 읽기 · 휴지통 · 되살리기 · 폴더 · 첨부", Store);
+            Check("접기: 오른쪽 위 작은 사각형 · 옮긴 자리에서 펼침 · 정렬 · 다시 열기", () => Run(CollapseSquare));
             Check("정음 메모 파일(HMD) 읽기", Hmd);
             Check("대화 메시지: 내 정보 · 참여자 · 돌려주기", ChatPayloads);
             Check("주고받기: 메모 · 큰 첨부 · 상태 · 부재중", () => Run(Network));

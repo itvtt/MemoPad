@@ -40,6 +40,11 @@ public partial class MemoWindow
         bool text = Memo.Kind == MemoKind.Text;
         var items = menu.Items;
 
+        if (Memo.Collapsed)
+        {
+            items.Add(Item("펼치기", ToggleCollapse, Icons.Expand, "두 번 클릭"));
+            items.Add(new Separator());
+        }
         items.Add(Item("새 메모", () => _desk.NewMemo(), Icons.Add, "Ctrl+N"));
         items.Add(Item("새 그림", () => _desk.NewMemo(MemoKind.Drawing), Icons.Pen));
         items.Add(Item("메모 관리기", () => _desk.ShowManager(Memo), Icons.Folder));
