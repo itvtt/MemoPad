@@ -4,13 +4,14 @@ using System.Text.Json.Serialization;
 
 namespace MemoPad.Core;
 
-/// <summary>설정: %LOCALAPPDATA%\MemoPad\settings.json (설치 폴더 밖이라 업데이트해도 남음)</summary>
+/// <summary>설정: 데이터 폴더(기본 %LOCALAPPDATA%\MemoPad)의 settings.json (설치 폴더 밖이라 업데이트 · 재설치해도 남음)</summary>
 public sealed class AppSettings
 {
-    /// <summary>MEMOPAD_DATA_DIR 이 있으면 그 폴더 (확인 · 시험용)</summary>
-    public static string DataDirectory { get; } = Environment.GetEnvironmentVariable("MEMOPAD_DATA_DIR") is { Length: > 0 } custom
-        ? custom
-        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MemoPad");
+    /// <summary>데이터 폴더 (DataLocation). 시작할 때 정하고, 설정에서 바꾸면 다시 시작</summary>
+    public static string DataDirectory { get; private set; } = DataLocation.Current;
+
+    /// <summary>처음 실행 때 고른 폴더를 씀 (설정 · 메모를 읽기 전에)</summary>
+    public static void UseDataDirectory(string folder) => DataDirectory = folder;
 
     private static string FilePath => Path.Combine(DataDirectory, "settings.json");
 

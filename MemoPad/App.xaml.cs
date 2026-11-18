@@ -13,14 +13,15 @@ namespace MemoPad;
 /// MemoPad.exe          트레이에 상주, 바탕화면 메모를 띄움. 이미 실행 중이면 메모 관리기를 앞으로
 /// MemoPad.exe --tray   (Windows 시작할 때) 똑같이 시작
 /// MemoPad.exe --new    이미 실행 중이면 새 메모
+/// MemoPad.exe --settings  설정 창 (이미 실행 중이면 그 MemoPad 의 설정)
 /// 트레이 아이콘: 클릭 = 새 메모, Ctrl+클릭 = 모두 보이기, Alt+클릭 = 메모 관리기, 오른쪽 클릭 = 메뉴
 /// </summary>
 public partial class App : Application
 {
-    private const string ShowSignalName = @"Local\MemoPad-show", NewSignalName = @"Local\MemoPad-new";
+    private const string ShowSignalName = @"Local\MemoPad-show", NewSignalName = @"Local\MemoPad-new", SettingsSignalName = @"Local\MemoPad-settings";
     private Mutex? _single;
-    private EventWaitHandle? _showSignal, _newSignal;
-    private RegisteredWaitHandle? _showWait, _newWait;
+    private EventWaitHandle? _showSignal, _newSignal, _settingsSignal;
+    private RegisteredWaitHandle? _showWait, _newWait, _settingsWait;
     private Forms.NotifyIcon? _tray;
     private Window? _trayHost;
     private DateTime _lastTrayClick;
@@ -52,6 +53,14 @@ public partial class App : Application
         };
         AppDomain.CurrentDomain.UnhandledException += (_, args) => Log.Error("앱", args.ExceptionObject as Exception);
         bool wantsNew = e.Args.Any(a => string.Equals(a, "--new", StringComparison.OrdinalIgnoreCase));
+        bool wantsSettings = e.Args.Any(a => string.Equals(a, "--settings", StringComparison.OrdinalIgnoreCase));
+        // 다시 시작 (데이터 폴더를 바꾼 뒤): 앞의 MemoPad 가 끝날 때까지 기다림
+        int after = Array.FindIndex(e.Args, a => string.Equals(a, "--after", StringComparison.OrdinalIgnoreCase));
+        if (after >= 0 && after + 1 < e.Args.Length && int.TryParse(e.Args[after + 1], out int previous))
+        {
+            try { using var old = System.Diagnostics.Process.GetProcessById(previous); old.WaitForExit(15_000); }
+            catch (Exception error) when (error is ArgumentException or InvalidOperationException) { }
+        }
         // 시험용 폴더(MEMOPAD_DATA_DIR)로 띄우면 이름을 따로 (설치된 MemoPad 와 함께 켜 둘 수 있게)
         string suffix = Environment.GetEnvironmentVariable("MEMOPAD_DATA_DIR") is { Length: > 0 } dir
             ? "-" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(dir.ToLowerInvariant())))[..12] : "";
@@ -60,7 +69,7 @@ public partial class App : Application
         {
             try
             {
-                using var signal = EventWaitHandle.OpenExisting((wantsNew ? NewSignalName : ShowSignalName) + suffix);
+                using var signal = EventWaitHandle.OpenExisting((wantsSettings ? SettingsSignalName : wantsNew ? NewSignalName : ShowSignalName) + suffix);
                 signal.Set();
             }
             catch (WaitHandleCannotBeOpenedException) { }
@@ -68,6 +77,7 @@ public partial class App : Application
             return;
         }
 
+        if (!ChooseDataFolder()) { Shutdown(); return; }
         bool firstRun = !File.Exists(Path.Combine(AppSettings.DataDirectory, "settings.json"));
         var settings = AppSettings.Load();
         bool installed = ILuncher.AppKit.AppUpdater.IsInstalledCopy("MemoPad");
@@ -97,6 +107,9 @@ public partial class App : Application
         _newSignal = new EventWaitHandle(false, EventResetMode.AutoReset, NewSignalName + suffix);
         _showWait = ThreadPool.RegisterWaitForSingleObject(_showSignal, (_, _) => Dispatcher.BeginInvoke(() => Desk.ShowManager()), null, -1, false);
         _newWait = ThreadPool.RegisterWaitForSingleObject(_newSignal, (_, _) => Dispatcher.BeginInvoke(() => Desk.NewMemo()), null, -1, false);
+        _settingsSignal = new EventWaitHandle(false, EventResetMode.AutoReset, SettingsSignalName + suffix);
+        _settingsWait = ThreadPool.RegisterWaitForSingleObject(_settingsSignal, (_, _) => Dispatcher.BeginInvoke(() => Desk?.ShowSettings()), null, -1, false);
+        if (wantsSettings) Desk.ShowSettings();
         SessionEnding += (_, _) => Desk?.Shutdown();
 
         // i-luncher AppKit: 설치된 사본이면 시작할 때 GitHub 릴리스를 확인해 스스로 업데이트 (AppKit\AppUpdater.cs)
@@ -202,12 +215,55 @@ public partial class App : Application
         Shutdown();
     }
 
+    /// <summary>
+    /// 처음 실행이면 데이터 폴더를 물음 (고른 폴더를 쓸 수 없게 됐을 때도). [끝내기] = false.
+    /// 고른 폴더는 HKCU\Software\MemoPad 에 남아 다시 설치해도 그대로 씀
+    /// </summary>
+    private static bool ChooseDataFolder()
+    {
+        string? warning = null;
+        if (DataLocation.TestFolder is null && DataLocation.Saved is { } saved && DataLocation.CheckWritable(saved) is { } problem)
+            warning = $"데이터 폴더를 쓸 수 없습니다.\n{saved}\n({problem})";
+        else if (!DataLocation.NeedsChoice) return true;
+        string? folder = DataFolderDialog.Choose(DataLocation.Saved ?? DataLocation.Default, warning);
+        if (folder is null) return false;
+        DataLocation.Save(folder);
+        AppSettings.UseDataDirectory(folder);
+        return true;
+    }
+
+    /// <summary>
+    /// 데이터 폴더 바꾸기 (설정): 메모를 모두 저장하고 창을 닫은 뒤, move 면 MemoPad 파일을 새 폴더로 옮기고 (아니면 그 폴더의 메모를 씀)
+    /// 새 폴더를 기록하고 다시 시작. 옮기다 실패하면 옛 폴더 그대로 다시 시작
+    /// </summary>
+    public void ChangeDataFolder(string folder, bool move)
+    {
+        Desk?.Shutdown();
+        Desk = null;
+        foreach (var window in Windows.OfType<Window>().ToList()) window.Close();   // 마지막 저장은 옛 폴더에
+        try
+        {
+            if (move) DataLocation.Move(AppSettings.DataDirectory, folder);
+            DataLocation.Save(folder);
+            AppSettings.UseDataDirectory(folder);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            Log.Error("데이터 폴더 옮기기", error);
+            Dialogs.Info(null, "데이터 폴더", $"옮기지 못했습니다. 지금 폴더를 그대로 씁니다.\n{error.Message}");
+        }
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!, $"--after {Environment.ProcessId}") { UseShellExecute = false });
+        Shutdown();
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
         _showWait?.Unregister(null);
         _newWait?.Unregister(null);
+        _settingsWait?.Unregister(null);
         _showSignal?.Dispose();
         _newSignal?.Dispose();
+        _settingsSignal?.Dispose();
         if (_tray is not null)
         {
             _tray.Visible = false;

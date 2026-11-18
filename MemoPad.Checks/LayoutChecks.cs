@@ -2,9 +2,35 @@ using System.Net;
 using MemoPad.Core;
 using MemoPad.Ui;
 
-/// <summary>메모 창 자리: 접기(작은 사각형) · 옮겨서 펼치기 · 정렬</summary>
+/// <summary>메모 창 자리: 접기(작은 사각형) · 옮겨서 펼치기 · 정렬. 데이터 폴더 옮기기</summary>
 static partial class Program
 {
+    private static void DataFolder()
+    {
+        Assert(!DataLocation.NeedsChoice, "시험 폴더(MEMOPAD_DATA_DIR)면 묻지 않음");
+        string from = Folder("data-from"), to = System.IO.Path.Combine(Folder("data-parent"), "새 폴더");
+        System.IO.File.WriteAllText(System.IO.Path.Combine(from, "settings.json"), "{}");
+        System.IO.File.WriteAllText(System.IO.Path.Combine(from, "folders.json"), "[]");
+        System.IO.Directory.CreateDirectory(System.IO.Path.Combine(from, "memos", "abc", "files"));
+        System.IO.File.WriteAllText(System.IO.Path.Combine(from, "memos", "abc.json"), "{}");
+        System.IO.File.WriteAllText(System.IO.Path.Combine(from, "memos", "abc", "files", "첨부.txt"), "첨부");
+        System.IO.File.WriteAllText(System.IO.Path.Combine(from, "남의 파일.txt"), "그대로");
+
+        Assert(DataLocation.HasData(from) && !DataLocation.HasData(to), "MemoPad 데이터가 있는 폴더 알아보기");
+        Equal(null, DataLocation.CheckWritable(to), "새 폴더 만들고 써 보기");
+        Assert(DataLocation.CheckWritable(@"상대\경로") is not null, "전체 경로만");
+        string? missing = DataLocation.CheckWritable(@"Q:\없는 드라이브\MemoPad");
+        Assert(missing is not null && missing.Contains("찾을 수 없습니다"), "없는 드라이브는 한국어로: " + missing);
+        Assert(DataLocation.IsInside(System.IO.Path.Combine(from, "memos"), from) && !DataLocation.IsInside(to, from), "안쪽 폴더 알아보기");
+        Assert(DataLocation.Same(from + "\\", from.ToUpperInvariant()), "같은 폴더 (대소문자 · 끝의 \\)");
+
+        DataLocation.Move(from, to);
+        Equal("첨부", System.IO.File.ReadAllText(System.IO.Path.Combine(to, "memos", "abc", "files", "첨부.txt")), "첨부까지 옮김");
+        Assert(System.IO.File.Exists(System.IO.Path.Combine(to, "settings.json")) && System.IO.File.Exists(System.IO.Path.Combine(to, "memos", "abc.json")), "설정 · 메모 옮김");
+        Assert(!DataLocation.HasData(from), "옛 폴더의 MemoPad 데이터는 지움");
+        Assert(System.IO.File.Exists(System.IO.Path.Combine(from, "남의 파일.txt")) && !System.IO.File.Exists(System.IO.Path.Combine(to, "남의 파일.txt")), "다른 파일은 그대로 (옮기지도 지우지도 않음)");
+    }
+
     private static async Task CollapseSquare()
     {
         string folder = Folder("desk-collapse");

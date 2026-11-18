@@ -92,9 +92,27 @@ internal sealed class SettingsWindow : Window
         Field(netGrid, 2, "주소록 폴더", FolderChooser());
     }
 
-    /// <summary>새 메모 · 일반 · 보안</summary>
+    /// <summary>데이터 폴더 · 새 메모 · 일반 · 보안</summary>
     private void AddLocalSections(StackPanel body)
     {
+        // ── 데이터 폴더 ──
+        var data = Section(body, "데이터 폴더");
+        var dataRow = new DockPanel();
+        var dataButtons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(8, 0, 0, 0) };
+        var open = Chrome.Pill("열기", () => System.Diagnostics.Process.Start("explorer.exe", $"\"{AppSettings.DataDirectory}\""));
+        var change = Chrome.Pill("바꾸기…", ChangeDataFolder);
+        open.Height = change.Height = 30;
+        change.IsEnabled = DataLocation.TestFolder is null;
+        if (!change.IsEnabled) change.ToolTip = "시험 폴더(MEMOPAD_DATA_DIR)를 쓰는 중";
+        dataButtons.Children.Add(open);
+        dataButtons.Children.Add(change);
+        DockPanel.SetDock(dataButtons, Dock.Right);
+        dataRow.Children.Add(dataButtons);
+        dataRow.Children.Add(new TextBox { Text = AppSettings.DataDirectory, IsReadOnly = true });
+        data.Children.Add(dataRow);
+        var dataNote = new TextBlock { Text = "메모와 설정이 저장되는 곳입니다. 바꾸면 새 폴더로 옮긴 뒤 다시 시작합니다.", Style = (Style)Application.Current.Resources["MutedTextStyle"], Margin = new Thickness(0, 8, 0, 2), TextWrapping = TextWrapping.Wrap };
+        data.Children.Add(dataNote);
+
         // ── 새 메모 ──
         var memo = Section(body, "새 메모");
         var swatches = new WrapPanel();
@@ -319,6 +337,13 @@ internal sealed class SettingsWindow : Window
         _netState.Text = $"받는 중: {NetAddress.MyAddress(S.Ip)} · 메모 포트 {Ports.MemoPort} · 대화 포트 {Ports.ChatPort}\n" + (_desk.Net.JungumListening
             ? $"정음 메모패드 사용자가 보낸 것도 받음 (포트 {JuProtocol.MemoPort} · {JuProtocol.ChatPort})"
             : "정음 메모패드 사용자가 보낸 것은 이 PC 의 정음 메모패드가 받음");
+    }
+
+    /// <summary>데이터 폴더 바꾸기: 빈 폴더면 옮기고, MemoPad 데이터가 있는 폴더면 그 메모를 씀. 그다음 다시 시작</summary>
+    private void ChangeDataFolder()
+    {
+        if (DataFolderDialog.Change(this, AppSettings.DataDirectory) is not { } folder) return;
+        ((App)Application.Current).ChangeDataFolder(folder, move: !DataLocation.HasData(folder));
     }
 
     private void UpdatePassword() => _passwordState.Text = S.HasPassword ? "보안 암호가 있습니다." : "보안 암호가 없습니다.";

@@ -44,11 +44,15 @@
 
 ## 저장 위치
 
-- `%LOCALAPPDATA%\MemoPad\` (설치 폴더 밖이라 업데이트해도 남음)
+- **데이터 폴더**: 처음 실행할 때 물어봅니다 (기본 `%LOCALAPPDATA%\MemoPad\`). 설정 → 데이터 폴더 → [바꾸기…]에서 새 폴더를 넣거나 [찾기…]로 고르면, MemoPad 파일만 새 폴더로 옮기고 다시 시작합니다. 고른 폴더에 MemoPad 메모가 이미 있으면 옮기지 않고 그 메모를 씁니다 (다른 PC 와 함께 쓰는 폴더 · 예전 폴더로 돌아가기).
+  - 고른 폴더는 `HKCU\Software\MemoPad` 의 `DataFolder` 에 남아, 지웠다 다시 설치해도 묻지 않고 그 폴더를 씁니다. 예전 버전이 쓰던 기본 폴더에 메모가 있으면 묻지 않고 그대로 씁니다.
+  - 고른 폴더를 쓸 수 없게 되면 (드라이브를 뺀 경우 등) 시작할 때 다시 묻습니다.
+  - 설치 폴더 밖이라 업데이트 · 재설치해도 남습니다.
   - `memos\<id>.json` 메모 하나에 파일 하나, 첨부는 `memos\<id>\files\`
   - `settings.json` 설정 (보안 암호는 해시만), `folders.json` 메모 관리기 폴더, `addressbook.json` 주소록 (주소록 폴더를 바꾸지 않았을 때)
   - `memopad.log` 오류 기록 (어떤 오류에도 앱은 꺼지지 않고 여기에 남김)
-- 시험할 때는 환경 변수 `MEMOPAD_DATA_DIR` 로 다른 폴더를 씁니다. `MEMOPAD_BIND` (받을 주소, 예: `127.0.0.2`)를 서로 다르게 주면 한 PC 에서 여럿을 띄울 수 있습니다. `MEMOPAD_JUNGUM_PORTS` = `1` · `0` 은 정음 포트로도 받을지를 정합니다 (없으면 이 PC 에 정음 메모패드가 없을 때만). `MEMOPAD_MEMO_PORT` · `MEMOPAD_CHAT_PORT` 는 MemoPad 포트를 바꿉니다 (모두 같은 값을 써야 서로 주고받음).
+- `MemoPad.exe --settings` 는 설정 창을 엽니다 (켜져 있으면 그 MemoPad 의 설정).
+- 시험할 때는 환경 변수 `MEMOPAD_DATA_DIR` 로 다른 폴더를 씁니다 (이때는 묻지 않고 기록도 건드리지 않음). `MEMOPAD_BIND` (받을 주소, 예: `127.0.0.2`)를 서로 다르게 주면 한 PC 에서 여럿을 띄울 수 있습니다. `MEMOPAD_JUNGUM_PORTS` = `1` · `0` 은 정음 포트로도 받을지를 정합니다 (없으면 이 PC 에 정음 메모패드가 없을 때만). `MEMOPAD_MEMO_PORT` · `MEMOPAD_CHAT_PORT` 는 MemoPad 포트를 바꿉니다 (모두 같은 값을 써야 서로 주고받음).
 - 설치된 사본은 처음 실행할 때 "Windows 시작할 때 실행"을 켭니다 (`--tray`). 설정 → 일반에서 끕니다.
 
 ## 빌드 · 확인
