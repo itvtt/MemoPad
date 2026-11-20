@@ -313,12 +313,12 @@ public partial class MemoWindow : Window
     {
         string title = Memo.Collapsed && !(Memo.Secured && !_unlocked) ? Memo.FirstLine : Memo.Origin switch
         {
-            MemoOrigin.Received => $"{Memo.From?.Label} · {Formats.Short(Memo.ReceivedAt ?? Memo.Created)}",
+            MemoOrigin.Received => $"{Memo.From?.Label} · {Formats.Title(Memo.ReceivedAt ?? Memo.Created)}",
             MemoOrigin.CirculationReceived => $"{Memo.Circulation?.Originator.Label ?? Memo.From?.Label}의 회람",
             MemoOrigin.CirculationResult => "회람 결과",
             MemoOrigin.CirculationOriginal => "회람 원본",
             MemoOrigin.Sent => "보냄 → " + string.Join(", ", Memo.SentTo.Select(p => p.Label)),
-            _ => Formats.Short(Memo.Created)
+            _ => Formats.Title(Memo.Created)
         };
         TitleText.Text = title;
         bool show = _desk.Settings.AlwaysShowTitle || IsActive || Header.IsMouseOver || Memo.Collapsed;

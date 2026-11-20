@@ -31,4 +31,8 @@ public static class Formats
     }
 
     public static string Full(DateTime value) => value.ToString("yyyy-MM-dd HH:mm", Korean);
+
+    /// <summary>메모 머리: 11월 20일 (금) 15:12, 다른 해면 2025년 11월 20일 (목) 15:12</summary>
+    public static string Title(DateTime value) =>
+        value.ToString(value.Year == DateTime.Now.Year ? "M월 d일 (ddd) HH:mm" : "yyyy년 M월 d일 (ddd) HH:mm", Korean);
 }

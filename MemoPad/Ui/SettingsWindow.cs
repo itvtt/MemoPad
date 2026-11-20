@@ -16,6 +16,10 @@ internal sealed class SettingsWindow : Window
     private AppSettings S => _desk.Settings;
     private readonly TextBlock _netState = new() { Style = (Style)Application.Current.Resources["MutedTextStyle"], Margin = new Thickness(0, 6, 0, 0) };
     private readonly TextBlock _passwordState = new() { Style = (Style)Application.Current.Resources["FieldLabelStyle"] };
+    private readonly Dictionary<HotkeyAction, Button> _keyBoxes = [];
+    private readonly TextBlock _keyMessage = new() { Style = (Style)Application.Current.Resources["MutedTextStyle"], Margin = new Thickness(0, 4, 0, 2), Visibility = Visibility.Collapsed };
+    /// <summary>단축키 칸을 누른 뒤 키를 기다리는 중</summary>
+    private HotkeyAction? _waiting;
 
     public SettingsWindow(Desk desk)
     {
@@ -40,8 +44,9 @@ internal sealed class SettingsWindow : Window
         if (desk.Networked) AddNetworkSections(body);
         AddLocalSections(body);
 
-        PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) Close(); };
-        Closed += (_, _) => S.Save();
+        PreviewKeyDown += OnPreviewKeyDown;
+        Deactivated += (_, _) => StopWaiting();
+        Closed += (_, _) => { StopWaiting(); S.Save(); };
     }
 
     /// <summary>내 정보 · 받기 · 보내기 (네트워크 기능을 쓸 때만)</summary>
@@ -169,6 +174,14 @@ internal sealed class SettingsWindow : Window
         Field(generalGrid, 2, "정렬 간격", Number(S.ArrangeGap, 0, 100, v => S.ArrangeGap = v));
         general.Children.Add(Check("정렬할 때 펼친 메모는 그대로", S.ArrangeSkipExpanded, v => S.ArrangeSkipExpanded = v));
 
+        // ── 단축키 ──
+        var keys = Section(body, "단축키");
+        var keyGrid = Fields(keys);
+        for (int i = 0; i < Hotkeys.Actions.Length; i++) Field(keyGrid, i, Hotkeys.Name(Hotkeys.Actions[i]), KeyRow(Hotkeys.Actions[i]));
+        keys.Children.Add(_keyMessage);
+        _desk.Hotkeys.Register();   // 앞서 쓰지 못한 키를 다른 프로그램이 놓았을 수 있음
+        ShowKeys();
+
         // ── 보안 ──
         var security = Section(body, "보안");
         var passwordRow = new DockPanel();
@@ -181,6 +194,101 @@ internal sealed class SettingsWindow : Window
         security.Children.Add(passwordRow);
         if (_desk.Networked) security.Children.Add(Check("받은 메모는 늘 보안 메모로", S.SecureReceived, v => S.SecureReceived = v));
         UpdatePassword();
+    }
+
+    // ── 단축키 ──
+
+    private UIElement KeyRow(HotkeyAction action)
+    {
+        var row = new DockPanel();
+        var clear = Chrome.IconButton(Icons.Close, "단축키 없애기", () =>
+        {
+            StopWaiting();
+            _desk.Hotkeys.Set(action, default);
+            _keyMessage.Visibility = Visibility.Collapsed;
+            ShowKeys();
+        }, size: 11);
+        clear.Width = clear.Height = 32;
+        clear.Margin = new Thickness(6, 0, 0, 0);
+        DockPanel.SetDock(clear, Dock.Right);
+        row.Children.Add(clear);
+        var box = new Button { Style = (Style)Application.Current.Resources["KeyBoxStyle"], ToolTip = "눌러서 바꾸기" };
+        box.Click += (_, _) => StartWaiting(action);
+        row.Children.Add(box);
+        _keyBoxes[action] = box;
+        return row;
+    }
+
+    private void ShowKeys()
+    {
+        var failed = _desk.Hotkeys.Failed;
+        foreach (var (action, box) in _keyBoxes)
+        {
+            var binding = _desk.Hotkeys.Get(action);
+            bool waiting = _waiting == action;
+            box.Content = waiting ? "원하는 키를 누르세요…" : binding + (failed.Contains(action) ? "  · 다른 프로그램이 사용 중" : "");
+            box.Foreground = (Brush)Application.Current.Resources[waiting || binding.IsNone ? "MutedTextBrush" : failed.Contains(action) ? "WarningBrush" : "TextBrush"];
+            box.BorderBrush = waiting ? (Brush)Application.Current.Resources["AccentBrush"] : new SolidColorBrush(Color.FromRgb(0x3A, 0x3B, 0x42));
+        }
+    }
+
+    private void StartWaiting(HotkeyAction action)
+    {
+        if (_waiting is null) _desk.Hotkeys.Suspend();
+        _waiting = action;
+        _keyMessage.Visibility = Visibility.Collapsed;
+        ShowKeys();
+        Keyboard.Focus(_keyBoxes[action]);
+    }
+
+    private void StopWaiting()
+    {
+        if (_waiting is null) return;
+        _waiting = null;
+        _desk.Hotkeys.Resume();
+        ShowKeys();
+    }
+
+    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (_waiting is not { } action)
+        {
+            if (e.Key == Key.Escape) Close();
+            return;
+        }
+        e.Handled = true;
+        var key = e.Key switch { Key.System => e.SystemKey, Key.ImeProcessed => e.ImeProcessedKey, _ => e.Key };
+        var modifiers = Keyboard.Modifiers;
+        if (key == Key.Escape && modifiers == ModifierKeys.None) { StopWaiting(); return; }
+        if (HotkeyBinding.FromKey(key, modifiers, out string? warning) is not { } binding) return;   // 수정 키만: 나머지 키를 기다림
+        _keyMessage.Text = TakeKey(action, binding, warning, out bool problem) ?? "";
+        _keyMessage.Foreground = (Brush)Application.Current.Resources[problem ? "WarningBrush" : "MutedTextBrush"];
+        _keyMessage.Visibility = _keyMessage.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>누른 키를 단축키로. 다른 쪽이 쓰던 키면 옮기고, 다른 프로그램이 쓰는 키면 앞의 것으로 되돌림. 알릴 말 (없으면 null)</summary>
+    internal string? TakeKey(HotkeyAction action, HotkeyBinding binding, string? warning, out bool problem)
+    {
+        var hotkeys = _desk.Hotkeys;
+        string? moved = null;
+        foreach (var other in Hotkeys.Actions.Where(a => a != action && hotkeys.Get(a) == binding))
+        {
+            hotkeys.Set(other, default);
+            moved = $"{Hotkeys.Name(other)}에서 옮겼습니다.";
+        }
+        var previous = hotkeys.Get(action);
+        hotkeys.Set(action, binding);
+        StopWaiting();
+        problem = hotkeys.Failed.Contains(action);
+        if (problem)
+        {
+            hotkeys.Set(action, previous);
+            ShowKeys();
+            return $"{binding} 는 다른 프로그램이 쓰고 있습니다.";
+        }
+        ShowKeys();
+        var parts = new[] { moved, warning }.Where(t => t is not null).ToList();
+        return parts.Count > 0 ? string.Join(" ", parts) : null;
     }
 
     private void Refresh()

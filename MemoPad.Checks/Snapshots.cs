@@ -33,7 +33,18 @@ static class Snapshots
             desk.ShowManager();
             Save(Application.Current.Windows.OfType<Window>().First(w => w.Title.StartsWith("메모 관리기")), Path.Combine(folder, "manager.png"));
             desk.ShowSettings();
-            Save(Application.Current.Windows.OfType<Window>().First(w => w.Title.StartsWith("설정")), Path.Combine(folder, "settings.png"));
+            var settings = Application.Current.Windows.OfType<Window>().First(w => w.Title.StartsWith("설정"));
+            Save(settings, Path.Combine(folder, "settings.png"));
+            // 아래쪽 (단축키 · 보안): 하나는 정한 키, 하나는 없음
+            desk.Hotkeys.Set(HotkeyAction.HideAll, new HotkeyBinding(HotkeyBinding.MOD_CONTROL | HotkeyBinding.MOD_ALT, 0x48));
+            settings.Close();
+            desk.ShowSettings();
+            settings = Application.Current.Windows.OfType<Window>().First(w => w.Title.StartsWith("설정"));
+            settings.Show();
+            settings.UpdateLayout();
+            FindScroll(settings)?.ScrollToEnd();
+            Save(settings, Path.Combine(folder, "settings-end.png"));
+            desk.Hotkeys.Set(HotkeyAction.HideAll, default);
             desk.ShowAddressBook();
             Save(Application.Current.Windows.OfType<Window>().First(w => w.Title.StartsWith("주소록")), Path.Combine(folder, "addressbook.png"));
             Console.WriteLine($"PNG -> {folder}");
@@ -44,6 +55,17 @@ static class Snapshots
             foreach (var window in Application.Current.Windows.OfType<Window>().ToList()) window.Close();
             desk.Shutdown();
         }
+    }
+
+    private static System.Windows.Controls.ScrollViewer? FindScroll(DependencyObject parent)
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is System.Windows.Controls.ScrollViewer scroll) return scroll;
+            if (FindScroll(child) is { } found) return found;
+        }
+        return null;
     }
 
     private static void Save(Window window, string path, double zoom = 1)

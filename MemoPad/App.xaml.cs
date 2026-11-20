@@ -186,8 +186,9 @@ public partial class App : Application
         if (desk.Networked) items.Add(MemoWindow.Item("대화창 열기", () => desk.OpenChat(), Icons.Chat));
         items.Add(MemoWindow.Item("메모 관리기", () => desk.ShowManager(), Icons.Folder, "Alt+클릭"));
         items.Add(new Separator());
-        items.Add(MemoWindow.Item("모두 보이기", desk.ShowAll, Icons.Show, "Ctrl+클릭"));
-        items.Add(MemoWindow.Item("모두 숨기기", desk.HideAll, Icons.Hide));
+        string showKey = desk.Hotkeys.Gesture(HotkeyAction.ShowAll);
+        items.Add(MemoWindow.Item("모두 보이기", desk.ShowAll, Icons.Show, showKey.Length > 0 ? showKey : "Ctrl+클릭"));
+        items.Add(MemoWindow.Item("모두 숨기기", desk.HideAll, Icons.Hide, desk.Hotkeys.Gesture(HotkeyAction.HideAll)));
         items.Add(MemoWindow.Item("바탕화면 메모 정렬", desk.Arrange, Icons.Grid));
         var discard = MemoWindow.Item("모두 버리기", desk.DiscardAll, Icons.Delete);
         discard.Style = (Style)Resources["DangerMenuItemStyle"];

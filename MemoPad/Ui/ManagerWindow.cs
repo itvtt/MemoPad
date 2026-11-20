@@ -375,8 +375,8 @@ internal sealed class ManagerWindow : Window
     private void MoreMenu(Button anchor)
     {
         var menu = new ContextMenu();
-        menu.Items.Add(MemoWindow.Item("모두 보이기", _desk.ShowAll, Icons.Show));
-        menu.Items.Add(MemoWindow.Item("모두 숨기기", _desk.HideAll, Icons.Hide));
+        menu.Items.Add(MemoWindow.Item("모두 보이기", _desk.ShowAll, Icons.Show, _desk.Hotkeys.Gesture(HotkeyAction.ShowAll)));
+        menu.Items.Add(MemoWindow.Item("모두 숨기기", _desk.HideAll, Icons.Hide, _desk.Hotkeys.Gesture(HotkeyAction.HideAll)));
         menu.Items.Add(MemoWindow.Item("바탕화면 메모 정렬", _desk.Arrange, Icons.Grid));
         menu.Items.Add(new Separator());
         menu.Items.Add(MemoWindow.Item("정음 메모 가져오기…", ImportJungum, ""));

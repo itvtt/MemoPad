@@ -69,6 +69,9 @@ public sealed class AppSettings
     public int ArrangeGap { get; set; } = 10;
     public bool ArrangeSkipExpanded { get; set; }
 
+    // ── 단축키 (전역, HotkeyAction 이름 → 키. 없으면 없음) ──
+    public Dictionary<string, HotkeyBinding>? Hotkeys { get; set; }
+
     // ── 보안 ──
     public string PasswordHash { get; set; } = "";
     public string PasswordSalt { get; set; } = "";
