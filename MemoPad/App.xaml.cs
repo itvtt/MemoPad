@@ -112,6 +112,8 @@ public partial class App : Application
         if (wantsSettings) Desk.ShowSettings();
         SessionEnding += (_, _) => Desk?.Shutdown();
 
+        // 사용 시간 · 가동 시간 · 메모 · 알람 집계 (AppKit\AppUsage.cs → API 서버, ImPerformance 성과 계산용). 바탕화면 메모라 상주 앱
+        ILuncher.AppKit.AppUsage.Start(ILuncher.AppKit.UsageKind.Resident);
         // i-luncher AppKit: 설치된 사본이면 시작할 때 GitHub 릴리스를 확인해 스스로 업데이트 (AppKit\AppUpdater.cs)
         ILuncher.AppKit.AppUpdater.StartBackground(ready => Dispatcher.BeginInvoke(() =>
         {

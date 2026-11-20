@@ -112,6 +112,7 @@ public sealed partial class Desk
 
     public MemoWindow NewMemo(MemoKind kind = MemoKind.Text)
     {
+        ILuncher.AppKit.AppUsage.Count("memo");
         var memo = new MemoData
         {
             Kind = kind,

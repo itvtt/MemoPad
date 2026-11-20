@@ -184,6 +184,7 @@ internal sealed class AlarmPopup : DialogWindow
 
     public static void Ring(MemoWindow window, MemoData memo)
     {
+        ILuncher.AppKit.AppUsage.Count("alarm");
         var popup = new AlarmPopup(window, memo);
         popup.Show();
         popup.Activate();
