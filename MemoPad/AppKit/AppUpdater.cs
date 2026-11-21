@@ -272,6 +272,8 @@ namespace ILuncher.AppKit
                 $"  Wait-Process -Id {processId} -Timeout 600 -ErrorAction SilentlyContinue",
                 // 같은 패키지를 다른 사본의 업데이터가 이미 적용하고 지웠으면 그쪽이 앱을 다시 켬
                 "  if (-not (Test-Path -LiteralPath $zip)) { Log 'package already applied'; return }",
+                // 기다리는 동안 앱을 제거했으면 (런처의 제거 등) 설치 폴더를 다시 만들지 않음
+                "  if (-not (Test-Path -LiteralPath (Join-Path $target $exe))) { Log 'app removed, update skipped'; Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue; return }",
                 "  Add-Type -AssemblyName System.IO.Compression.FileSystem",
                 "  $staging = Join-Path $env:TEMP ('AppUpdate_' + [guid]::NewGuid().ToString('N'))",
                 "  [IO.Compression.ZipFile]::ExtractToDirectory($zip, $staging)",
