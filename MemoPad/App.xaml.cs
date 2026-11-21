@@ -97,6 +97,7 @@ public partial class App : Application
         Desk.Start();
         UpdateTray();
         WarnIfNotListening();
+        WatchStorage(Desk.Store);
         if (firstRun)
         {
             if (Desk.Networked) Desk.ShowSettings();   // 내 정보(이름 · ID)를 정하게
@@ -150,6 +151,23 @@ public partial class App : Application
         if (resource is null) return System.Drawing.SystemIcons.Application;
         using var stream = resource.Stream;
         return new System.Drawing.Icon(stream, Forms.SystemInformation.SmallIconSize);
+    }
+
+    /// <summary>
+    /// 메모 파일 지키기: 시작할 때 되살리거나 옮긴 파일 · 저장하지 못함 · 다시 저장됨을 트레이로 알리고, 하루 한 번 백업(뒤에서)
+    /// </summary>
+    private void WatchStorage(MemoStore store)
+    {
+        if (store.Damaged.Count > 0)
+            _tray?.ShowBalloonTip(10000, "MemoPad: 읽지 못한 메모가 있습니다",
+                $"메모 {store.Damaged.Count}개가 깨져 있어 '{MemoStore.DamagedFolderName}' 폴더에 옮겨 두었습니다. 자세한 것은 memopad.log", Forms.ToolTipIcon.Warning);
+        else if (store.Recovered.Count > 0)
+            _tray?.ShowBalloonTip(8000, "MemoPad: 메모를 되살렸습니다",
+                $"깨져 있던 메모 {store.Recovered.Count}개를 바로 전 저장본으로 되살렸습니다.", Forms.ToolTipIcon.Info);
+        store.SaveFailed += reason => _tray?.ShowBalloonTip(10000, "MemoPad: 메모를 저장하지 못했습니다",
+            $"고친 내용은 그대로 두고 10초마다 다시 저장합니다. 데이터 폴더를 확인하세요. ({reason})", Forms.ToolTipIcon.Warning);
+        store.SaveRecovered += () => _tray?.ShowBalloonTip(5000, "MemoPad", "저장하지 못했던 메모를 모두 저장했습니다.", Forms.ToolTipIcon.Info);
+        _ = Task.Run(() => store.BackupDaily());
     }
 
     /// <summary>메모를 받을 수 없으면 (다른 프로그램이 MemoPad 포트를 씀) 트레이 알림</summary>

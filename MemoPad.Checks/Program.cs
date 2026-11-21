@@ -44,6 +44,7 @@ static partial class Program
             Check("RTF: 따옴표 (빈 줄 포함) · 앞에 줄 넣기 · 일반 글자 · 그림", Rtf);
             Check("주소록: 찾기 · 초성 · CSV 내보내기/불러오기", AddressBookCsv);
             Check("저장소: 저장 · 다시 읽기 · 휴지통 · 되살리기 · 폴더 · 첨부", Store);
+            Check("저장소 지키기: 깨진 파일 되살림 · 읽지 못한 메모 폴더 · 잠깐 잠긴 파일 · 저장 실패 다시 시도 · 하루 백업 7개", StoreSafety);
             Check("접기: 오른쪽 위 작은 사각형 · 옮긴 자리에서 펼침 · 정렬 · 다시 열기", () => Run(CollapseSquare));
             Check("데이터 폴더: MemoPad 파일만 옮김 · 첨부까지 · 있는 데이터 알아보기 · 안쪽 폴더", DataFolder);
             Check("단축키: 모두 숨기기 · 모두 보이기 (전역) · 저장 · 겹치면 옮김 · 남이 쓰면 되돌림, 메모 머리 날짜", () => Run(HotkeysFlow));
@@ -272,6 +273,78 @@ static partial class Program
         Assert(again.Live.Contains(loaded), "되살리기");
         again.Delete(loaded);
         Assert(new MemoStore(folder).Find(memo.Id) is null && !Directory.Exists(Path.Combine(folder, "memos", memo.Id.ToString("N"))), "지우기 (첨부 폴더까지)");
+    }
+
+    private static void StoreSafety()
+    {
+        string folder = Folder("store-safety");
+        var store = new MemoStore(folder);
+        var memo = new MemoData { Rtf = RtfText.FromPlain("첫 내용"), Text = "첫 내용" };
+        store.Save(memo);
+        memo.Text = "둘째 내용";
+        store.Save(memo);
+        string path = Path.Combine(folder, "memos", memo.Id.ToString("N") + ".json");
+        Assert(File.ReadAllText(path + ".bak").Contains("첫 내용") && File.ReadAllText(path).Contains("둘째 내용"), "저장할 때 바로 전 저장본을 .bak 으로");
+
+        // 깨진 파일 → .bak 으로 되살림
+        File.WriteAllText(path, "{\"id\": \"" + memo.Id + "\", \"text\": \"잘린");
+        var recovered = new MemoStore(folder);
+        Equal("첫 내용", recovered.Find(memo.Id)?.Text, "깨진 파일은 바로 전 저장본으로");
+        Assert(recovered.Recovered.Count == 1 && recovered.Damaged.Count == 0, "되살린 것으로 알림");
+        Assert(new MemoStore(folder).Find(memo.Id) is not null, "되살린 내용을 다시 써 둠");
+
+        // 둘 다 깨짐 → 읽지 못한 메모 폴더로 (조용히 사라지지 않음)
+        File.WriteAllText(path, "깨짐");
+        File.WriteAllText(path + ".bak", "깨짐");
+        var damaged = new MemoStore(folder);
+        Assert(damaged.Find(memo.Id) is null && damaged.Damaged.Count == 1, "읽지 못한 것으로 알림");
+        Assert(!File.Exists(path) && Directory.GetFiles(damaged.DamagedFolderPath, "*.json").Length == 1, "파일은 읽지 못한 메모 폴더로 옮김 (지우지 않음)");
+        Assert(new MemoStore(folder).Damaged.Count == 0, "옮긴 뒤에는 다시 알리지 않음");
+
+        // 잠깐 잠긴 파일 → 건드리지 않고 이번만 건너뜀
+        var other = new MemoData { Text = "잠긴 메모" };
+        store = new MemoStore(folder);
+        store.Save(other);
+        string otherPath = Path.Combine(folder, "memos", other.Id.ToString("N") + ".json");
+        using (new FileStream(otherPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            var locked = new MemoStore(folder);
+            Assert(locked.Find(other.Id) is null && locked.Damaged.Count == 0 && File.Exists(otherPath), "잠긴 파일은 옮기지 않음");
+
+            // 저장 실패 → 고친 내용을 잊지 않고 다시 시도
+            int failed = 0, back = 0;
+            store.SaveFailed += _ => failed++;
+            store.SaveRecovered += () => back++;
+            other.Text = "잠긴 동안 고침";
+            Assert(!store.Save(other) && store.UnsavedCount == 1 && failed == 1, "저장 못 함을 알림 (한 번)");
+            other.Text = "잠긴 동안 또 고침";
+            store.Save(other);
+            Equal(1, failed, "실패 알림은 한 번만");
+            store.RetryUnsaved();
+            Equal(1, store.UnsavedCount, "잠겨 있는 동안은 그대로 기다림");
+            Assert(back == 0, "아직 저장 안 됨");
+
+            // 잠금이 풀린 뒤 (using 끝) 다시 시도
+            store.SaveRecovered += () => { };
+        }
+        store.RetryUnsaved();
+        Equal(0, store.UnsavedCount, "풀리면 저장");
+        Equal("잠긴 동안 또 고침", new MemoStore(folder).Find(other.Id)?.Text, "마지막으로 고친 내용이 저장됨");
+
+        // 지우면 .bak 도
+        store.Delete(other);
+        Assert(!File.Exists(otherPath) && !File.Exists(otherPath + ".bak"), "지우면 .bak 도 지움");
+
+        // 하루 백업: 메모 파일이 들어가고, 최근 7개만 남음
+        store.Save(new MemoData { Text = "백업할 메모" });
+        string? zipPath = store.BackupDaily(new DateTime(2026, 1, 1));
+        using (var zip = System.IO.Compression.ZipFile.OpenRead(zipPath!))
+            Assert(zip.Entries.Any(e => e.FullName.StartsWith("memos/") && e.FullName.EndsWith(".json")), "백업에 메모 파일");
+        for (int day = 2; day <= 10; day++) store.BackupDaily(new DateTime(2026, 1, day));
+        var kept = Directory.GetFiles(store.BackupFolderPath, "MemoPad-*.zip").Select(Path.GetFileName).OrderBy(n => n).ToList();
+        Equal(MemoStore.BackupsKept, kept.Count, "백업은 최근 7개");
+        Equal("MemoPad-2026-01-04.zip", kept[0], "오래된 것부터 지움");
+        Assert(DataLocation.Items.Contains("backup"), "데이터 폴더를 옮기면 백업도 함께");
     }
 
     private static void Hmd()

@@ -31,7 +31,11 @@ public sealed partial class Desk
         Net.Problem += text => Log.Write("[받기] " + text);
         Chat = new ChatService(this);
         _alarmTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
-        _alarmTimer.Tick += (_, _) => CheckAlarms();
+        _alarmTimer.Tick += (_, _) =>
+        {
+            CheckAlarms();
+            Store.RetryUnsaved();   // 저장하지 못했던 메모 다시 쓰기 (없으면 아무것도 안 함)
+        };
         // 이 PC 에 정음 메모패드가 생기면 정음 포트를 내주고, 없어지면 다시 받음
         _portTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
         _portTimer.Tick += (_, _) => { if (Networked && Net.Listening) UpdateJungumPorts(); };
@@ -96,6 +100,8 @@ public sealed partial class Desk
         _portTimer.Stop();
         Hotkeys.Dispose();
         foreach (var window in _windows.Values.ToList()) window.SaveNow();
+        Store.RetryUnsaved();
+        if (Store.UnsavedCount > 0) Log.Write($"[끝냄] 저장하지 못한 메모 {Store.UnsavedCount}개 (데이터 폴더를 쓸 수 없음)");
         Chat.Stop();
         Net.Dispose();
     }

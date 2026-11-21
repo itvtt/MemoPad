@@ -150,12 +150,29 @@ public sealed class AppSettings
 
 internal static class Files
 {
-    /// <summary>임시 파일에 쓰고 바꿔 끼움 (쓰다가 꺼져도 예전 파일이 남음)</summary>
-    public static void WriteAtomic(string path, string text)
+    /// <summary>
+    /// 임시 파일에 쓰고 디스크까지 내린 뒤 바꿔 끼움 (쓰다가 꺼지거나 전기가 나가도 예전 파일이 남음).
+    /// keepBackup 이면 바로 전 내용을 path.bak 으로 남김 (파일이 깨졌을 때 되살리는 데 씀)
+    /// </summary>
+    public static void WriteAtomic(string path, string text, bool keepBackup = false)
     {
         string temp = path + ".tmp";
-        File.WriteAllText(temp, text, new System.Text.UTF8Encoding(false));
+        byte[] bytes = new System.Text.UTF8Encoding(false).GetBytes(text);
+        using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
+        {
+            stream.Write(bytes);
+            stream.Flush(flushToDisk: true);
+        }
+        if (keepBackup && File.Exists(path)) File.Copy(path, path + ".bak", overwrite: true);
         File.Move(temp, path, overwrite: true);
+    }
+
+    /// <summary>다른 곳이 쓰는 중이어도 읽기 (백업 · 되살리기용)</summary>
+    public static string ReadShared(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(stream, System.Text.Encoding.UTF8);
+        return reader.ReadToEnd();
     }
 
     /// <summary>같은 이름이 있으면 "이름 (2).확장자"</summary>

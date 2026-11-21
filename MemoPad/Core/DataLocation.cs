@@ -14,7 +14,7 @@ public static class DataLocation
     private const string ValueName = "DataFolder";
 
     /// <summary>데이터 폴더에 MemoPad 가 두는 것 (옮길 때 이것만 옮기고, 다른 파일은 건드리지 않음)</summary>
-    public static readonly string[] Items = ["settings.json", "folders.json", "addressbook.json", "memopad.log", "memos"];
+    public static readonly string[] Items = ["settings.json", "folders.json", "addressbook.json", "memopad.log", "memos", "backup"];
 
     public static string Default => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MemoPad");
 
