@@ -36,7 +36,7 @@ static class Live
             memo.ReplaceRtf(RtfText.FromPlain($"MemoPad 시험 메모 {DateTime.Now:HH:mm:ss}\n한글 · English · 1234"));
             string file = Path.Combine(Path.GetTempPath(), "MemoPad 첨부 시험.txt");
             File.WriteAllText(file, "MemoPad 에서 보낸 첨부입니다.\r\n", new System.Text.UTF8Encoding(true));
-            memo.AttachFiles([file]);
+            await memo.AttachFiles([file]);
             await desk.SendAsync(memo, SendKind.Send, [target]);
             Report(memo.Memo.SentTo.Any(p => p.Ip == ip), "메모 + 첨부 보내기 (그쪽 화면에 메모가 떴는지 보세요)");
 

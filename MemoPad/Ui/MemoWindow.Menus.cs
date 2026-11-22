@@ -198,7 +198,7 @@ public partial class MemoWindow
     private void AttachWithDialog()
     {
         var dialog = new Microsoft.Win32.OpenFileDialog { Multiselect = true, Title = "파일 첨부" };
-        if (dialog.ShowDialog(this) == true) AttachFiles(dialog.FileNames);
+        if (dialog.ShowDialog(this) == true) _ = AttachFiles(dialog.FileNames);
     }
 
     private ContextMenu AttachmentMenu(string name)
@@ -214,7 +214,11 @@ public partial class MemoWindow
         if (!Memo.ReadOnly)
             menu.Items.Add(Item("빼기", () =>
             {
-                _desk.Store.RemoveAttachment(Memo, name);
+                if (!_desk.Store.RemoveAttachment(Memo, name))
+                {
+                    Dialogs.Info(this, "빼기", $"{name}\n다른 프로그램에서 열려 있어 뺄 수 없습니다. 닫은 뒤 다시 하세요.");
+                    return;
+                }
                 _desk.Save(Memo);
                 ApplyAttachments();
             }, Icons.Delete));

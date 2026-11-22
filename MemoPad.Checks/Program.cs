@@ -258,6 +258,20 @@ static partial class Program
         store.AddAttachment(memo, file);
         Equal(2, memo.Attachments.Count, "첨부 둘 (같은 이름 → (2))");
         Assert(memo.Attachments[1].Contains("(2)"), "두 번째 이름");
+        // 폴더 → 폴더이름.zip (안의 파일까지)
+        string dropped = Path.Combine(_root, "자료 폴더");
+        Directory.CreateDirectory(Path.Combine(dropped, "안"));
+        File.WriteAllText(Path.Combine(dropped, "안", "a.txt"), "가");
+        string zipName = store.CopyAttachment(memo, dropped + Path.DirectorySeparatorChar);
+        Equal("자료 폴더.zip", zipName, "폴더 첨부 이름");
+        using (var zip = System.IO.Compression.ZipFile.OpenRead(store.AttachmentPath(memo, zipName)))
+            Assert(zip.Entries.Any(entry => entry.FullName.Replace('\\', '/') == "자료 폴더/안/a.txt"), "폴더 첨부 내용");
+        Equal(2, memo.Attachments.Count, "CopyAttachment 는 목록을 건드리지 않음");
+        // 열려 있는 첨부는 빼지 않음
+        using (File.Open(store.AttachmentPath(memo, memo.Attachments[1]), FileMode.Open, FileAccess.Read, FileShare.None))
+            Assert(!store.RemoveAttachment(memo, memo.Attachments[1]) && memo.Attachments.Count == 2, "열린 첨부는 그대로 둠");
+        Assert(store.RemoveAttachment(memo, memo.Attachments[1]) && memo.Attachments.Count == 1, "닫으면 뺌");
+        store.AddAttachment(memo, file);
         var work = store.AddFolder("업무");
         memo.Folder = work.Id;
         store.Save(memo);

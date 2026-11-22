@@ -273,7 +273,7 @@ public partial class MemoWindow : Window
         Editor.Visibility = open && !drawing ? Visibility.Visible : Visibility.Collapsed;
         InkHost.Visibility = open && drawing ? Visibility.Visible : Visibility.Collapsed;
         InkBar.Visibility = open && drawing && !Memo.ReadOnly ? Visibility.Visible : Visibility.Collapsed;
-        AttachmentPanel.Visibility = open && Memo.Attachments.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        AttachmentPanel.Visibility = AttachmentsShown ? Visibility.Visible : Visibility.Collapsed;
         StatusBar.Visibility = open && Memo.StatusBar ? Visibility.Visible : Visibility.Collapsed;
         Header.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
         CollapsedFace.Visibility = open ? Visibility.Collapsed : Visibility.Visible;
@@ -493,60 +493,128 @@ public partial class MemoWindow : Window
 
     // ── 첨부 ─────────────────────────────────────────────────
 
+    /// <summary>복사하고 있는 첨부 수 (끝나면 0)</summary>
+    private int _attaching;
+
+    private bool AttachmentsShown => (Memo.Attachments.Count > 0 || _attaching > 0) && !Memo.Collapsed && !(Memo.Secured && !_unlocked);
+
     public void ApplyAttachments()
     {
         AttachmentPanel.Children.Clear();
         foreach (string name in Memo.Attachments)
         {
-            var chip = new Border
-            {
-                Margin = new Thickness(0, 2, 4, 0),
-                Padding = new Thickness(6, 2, 8, 3),
-                CornerRadius = new CornerRadius(9),
-                Background = new SolidColorBrush(Color.FromArgb(0x1A, 0, 0, 0)),
-                Cursor = Cursors.Hand,
-                ToolTip = $"{name}\n누르면 열기 · 오른쪽 클릭 = 저장 · 빼기",
-                Child = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Children =
-                    {
-                        new TextBlock { Text = Icons.Attach, FontFamily = Icons.Font, FontSize = 10.5, Foreground = new SolidColorBrush(Color.FromArgb(0xB3, 0, 0, 0)), VerticalAlignment = VerticalAlignment.Center },
-                        new TextBlock { Text = name, Margin = new Thickness(4, 0, 0, 0), FontSize = 11.5, MaxWidth = 180, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = new SolidColorBrush(Color.FromArgb(0xD9, 0, 0, 0)) }
-                    }
-                }
-            };
             string file = name;
-            chip.MouseLeftButtonUp += (_, _) => OpenAttachment(file);
+            var info = new FileInfo(_desk.Store.AttachmentPath(Memo, name));
+            bool missing = !info.Exists;
+            var chip = AttachmentChip(name, missing ? $"{name}\n파일이 없습니다" : $"{name} · {SizeText(info.Length)}\n두 번 클릭 = 열기 · 오른쪽 클릭 = 저장 · 빼기");
+            if (missing) chip.Opacity = 0.45;
+            chip.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { OpenAttachment(file); e.Handled = true; } };
             chip.MouseRightButtonUp += (_, e) => { AttachmentMenu(file).IsOpen = true; e.Handled = true; };
             AttachmentPanel.Children.Add(chip);
         }
-        AttachmentPanel.Visibility = Memo.Attachments.Count > 0 && !Memo.Collapsed ? Visibility.Visible : Visibility.Collapsed;
+        if (_attaching > 0)
+        {
+            var busy = AttachmentChip(_attaching == 1 ? "첨부하는 중…" : $"첨부하는 중… {_attaching}개", null);
+            busy.Opacity = 0.6;
+            busy.Cursor = Cursors.Wait;
+            AttachmentPanel.Children.Add(busy);
+        }
+        AttachmentPanel.Visibility = AttachmentsShown ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    private static Border AttachmentChip(string text, string? tip)
+    {
+        var normal = new SolidColorBrush(Color.FromArgb(0x1A, 0, 0, 0));
+        var hover = new SolidColorBrush(Color.FromArgb(0x30, 0, 0, 0));
+        var chip = new Border
+        {
+            Margin = new Thickness(0, 2, 4, 0),
+            Padding = new Thickness(6, 2, 8, 3),
+            CornerRadius = new CornerRadius(9),
+            Background = normal,
+            Cursor = Cursors.Hand,
+            ToolTip = tip,
+            Child = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Children =
+                {
+                    new TextBlock { Text = Icons.Attach, FontFamily = Icons.Font, FontSize = 10.5, Foreground = new SolidColorBrush(Color.FromArgb(0xB3, 0, 0, 0)), VerticalAlignment = VerticalAlignment.Center },
+                    new TextBlock { Text = text, Margin = new Thickness(4, 0, 0, 0), FontSize = 11.5, MaxWidth = 180, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = new SolidColorBrush(Color.FromArgb(0xD9, 0, 0, 0)) }
+                }
+            }
+        };
+        chip.MouseEnter += (_, _) => chip.Background = hover;
+        chip.MouseLeave += (_, _) => chip.Background = normal;
+        return chip;
+    }
+
+    private static string SizeText(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024.0:0.#} KB",
+        < 1024L * 1024 * 1024 => $"{bytes / (1024.0 * 1024):0.#} MB",
+        _ => $"{bytes / (1024.0 * 1024 * 1024):0.##} GB"
+    };
+
+    /// <summary>첨부를 그 파일의 기본 프로그램으로 엶 (실행 파일은 실행). 열 프로그램이 정해지지 않은 파일은 "연결 프로그램" 창</summary>
     private void OpenAttachment(string name)
     {
         string path = _desk.Store.AttachmentPath(Memo, name);
-        try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
-        catch (Exception error) when (error is System.ComponentModel.Win32Exception or FileNotFoundException)
+        if (!File.Exists(path))
         {
+            Dialogs.Info(this, "첨부", $"{name}\n파일이 없습니다.");
+            ApplyAttachments();
+            return;
+        }
+        try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
+        catch (System.ComponentModel.Win32Exception error) when (error.NativeErrorCode == 1155) // 연결된 프로그램 없음
+        {
+            try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true, Verb = "openas" }); }
+            catch (System.ComponentModel.Win32Exception again) { Dialogs.Info(this, "첨부", $"열 수 없습니다: {again.Message}"); }
+        }
+        catch (Exception error) when (error is System.ComponentModel.Win32Exception or IOException)
+        {
+            if (error is System.ComponentModel.Win32Exception { NativeErrorCode: 1223 }) return; // 사용자가 취소 (보안 경고 등)
             Dialogs.Info(this, "첨부", $"열 수 없습니다: {error.Message}");
         }
     }
 
-    public void AttachFiles(IEnumerable<string> paths)
+    /// <summary>
+    /// 파일 여러 개 · 폴더(폴더이름.zip 으로)를 한 번에 첨부. 복사는 화면 밖에서 해서 큰 파일도 메모가 멈추지 않고,
+    /// 그동안 "첨부하는 중…" 이 보임. 못 넣은 파일은 끝에 한 번에 알림
+    /// </summary>
+    public async Task AttachFiles(IEnumerable<string> paths)
     {
-        foreach (string path in paths.Where(File.Exists))
+        var sources = paths.Where(path => File.Exists(path) || Directory.Exists(path)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (sources.Count == 0) return;
+        MemoData memo = Memo;
+        MemoStore store = _desk.Store;
+        _attaching += sources.Count;
+        ApplyAttachments();
+        var (added, failures) = await Task.Run(() =>
         {
-            try { _desk.Store.AddAttachment(Memo, path); }
-            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            List<string> names = [], errors = [];
+            foreach (string path in sources)
             {
-                Dialogs.Info(this, "파일 첨부", $"{Path.GetFileName(path)}: {error.Message}");
+                try { names.Add(store.CopyAttachment(memo, path)); }
+                catch (Exception error) { errors.Add($"{Path.GetFileName(Path.TrimEndingDirectorySeparator(path))}: {error.Message}"); }
             }
+            return (names, errors);
+        });
+        _attaching -= sources.Count;
+        if (store.Find(memo.Id) is null)
+        {
+            // 복사하는 동안 메모를 지움: 복사한 파일도 지움
+            try { Directory.Delete(Path.GetDirectoryName(store.FilesFolder(memo))!, recursive: true); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+            return;
         }
-        _desk.Save(Memo);
+        memo.Attachments.AddRange(added);
+        if (added.Count > 0) _desk.Save(memo);
         ApplyAttachments();
         ApplyTitle();
+        if (failures.Count > 0) Dialogs.Info(this, "파일 첨부", "넣지 못했습니다.\n" + string.Join("\n", failures));
     }
 
     private void OnPreviewDragOver(object sender, DragEventArgs e)
@@ -565,7 +633,7 @@ public partial class MemoWindow : Window
             // 그림 파일 하나를 글 메모 본문에 놓으면 그림 넣기, 아니면 첨부
             if (Memo.Kind == MemoKind.Text && files.Length == 1 && IsImageFile(files[0]) && Editor.IsMouseOver && Keyboard.Modifiers != ModifierKeys.Shift)
                 InsertImageFile(files[0]);
-            else AttachFiles(files);
+            else _ = AttachFiles(files);
         }
     }
 

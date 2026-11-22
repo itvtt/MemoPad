@@ -226,11 +226,32 @@ public sealed class MemoStore
     /// <summary>첨부 파일을 메모 폴더로 복사하고 이름을 돌려줌 (같은 이름이면 " (2)")</summary>
     public string AddAttachment(MemoData memo, string sourcePath, string? name = null)
     {
+        string copied = CopyAttachment(memo, sourcePath, name);
+        memo.Attachments.Add(copied);
+        return copied;
+    }
+
+    /// <summary>
+    /// 파일이나 폴더(→ 폴더이름.zip)를 메모의 첨부 폴더로 복사하고 이름을 돌려줌. 메모의 첨부 목록은 건드리지 않음
+    /// (큰 파일을 화면 밖에서 복사할 때 씀). 복사하다 실패하면 반쯤 쓴 파일은 지움
+    /// </summary>
+    public string CopyAttachment(MemoData memo, string sourcePath, string? name = null)
+    {
         string folder = FilesFolder(memo);
         Directory.CreateDirectory(folder);
-        string target = Files.Unique(folder, Files.SafeName(name ?? Path.GetFileName(sourcePath)));
-        File.Copy(sourcePath, target);
-        memo.Attachments.Add(Path.GetFileName(target));
+        bool isFolder = Directory.Exists(sourcePath);
+        string source = Path.TrimEndingDirectorySeparator(sourcePath);
+        string target = Files.Unique(folder, Files.SafeName(name ?? Path.GetFileName(source) + (isFolder ? ".zip" : "")));
+        try
+        {
+            if (isFolder) System.IO.Compression.ZipFile.CreateFromDirectory(source, target, System.IO.Compression.CompressionLevel.Fastest, includeBaseDirectory: true);
+            else File.Copy(sourcePath, target);
+        }
+        catch
+        {
+            try { File.Delete(target); } catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+            throw;
+        }
         return Path.GetFileName(target);
     }
 
@@ -244,11 +265,13 @@ public sealed class MemoStore
         return Path.GetFileName(target);
     }
 
-    public void RemoveAttachment(MemoData memo, string name)
+    /// <summary>첨부를 뺌. 파일이 다른 프로그램에 열려 있어 지울 수 없으면 그대로 두고 false</summary>
+    public bool RemoveAttachment(MemoData memo, string name)
     {
-        memo.Attachments.Remove(name);
         try { File.Delete(AttachmentPath(memo, name)); }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return false; }
+        memo.Attachments.Remove(name);
+        return true;
     }
 
     /// <summary>복사본 (보낸 메모 · 전달 · 회람 결과): 새 id, 첨부도 복사</summary>
