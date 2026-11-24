@@ -34,7 +34,8 @@ public sealed class AppSettings
     // ── 받기 · 보내기 ──
     public bool Sound { get; set; } = true;
     public string SoundFile { get; set; } = "";
-    public bool ReceivedOnTop { get; set; }
+    /// <summary>받은 메모도 처음 설치하면 항상 위 (설정에서 끔)</summary>
+    public bool ReceivedOnTop { get; set; } = true;
     public bool QuoteReceived { get; set; } = true;
     public bool CloseAfterSend { get; set; }
     public bool NotifyUndelivered { get; set; } = true;
@@ -52,7 +53,8 @@ public sealed class AppSettings
     public double FontSize { get; set; } = 13;
     public int DefaultWidth { get; set; } = 260;
     public int DefaultHeight { get; set; } = 180;
-    public bool DefaultTop { get; set; }
+    /// <summary>새 메모는 처음 설치하면 항상 위 (설정 → 새 메모 → 항상 위로 끔, 메모마다 옵션 → 항상 위 · 항상 아래). 이미 쓰던 설정은 그대로</summary>
+    public bool DefaultTop { get; set; } = true;
     public double DefaultOpacity { get; set; } = 1;
     public double CollapsedOpacity { get; set; } = 1;
     public bool ScrollBar { get; set; }

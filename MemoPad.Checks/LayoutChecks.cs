@@ -84,6 +84,31 @@ static partial class Program
         }
     }
 
+    /// <summary>새 메모 기본은 항상 위 (처음 설치 = 기본 설정), 설정에서 끄면 보통</summary>
+    private static async Task DefaultOnTop()
+    {
+        string folder = Folder("desk-top");
+        var settings = new AppSettings { Name = "항상 위", UseNetwork = false, StartupConfigured = true, Sound = false, AddressBookFolder = folder };
+        Assert(settings.DefaultTop && settings.ReceivedOnTop, "기본 설정: 새 메모 · 받은 메모 항상 위");
+        var desk = new Desk(settings, new MemoStore(folder), IPAddress.Parse("127.0.0.14"));
+        desk.Start();
+        try
+        {
+            var top = desk.NewMemo();
+            await Task.Delay(100);
+            Equal((MemoLayer.Top, true), (top.Memo.Layer, top.Topmost), "새 메모는 항상 위");
+            settings.DefaultTop = false;
+            var normal = desk.NewMemo();
+            await Task.Delay(100);
+            Equal((MemoLayer.Normal, false), (normal.Memo.Layer, normal.Topmost), "설정에서 끄면 보통");
+        }
+        finally
+        {
+            foreach (var window in desk.Windows.ToList()) window.Close();
+            desk.Shutdown();
+        }
+    }
+
     /// <summary>메모마다 글꼴 · 글자 크기: 본문 전체 · 저장 · 다시 열어도 그대로 · 다른 메모는 그대로 · 단계 · 기본으로 · 읽기 전용은 못 바꿈</summary>
     private static async Task FontPerMemo()
     {
