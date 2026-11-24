@@ -127,7 +127,7 @@ public sealed partial class Desk
                                            : $"{delivered.Count}/{targets.Count}명에게 보냈습니다");
             if (failed.Count > 0 && (Settings.NotifyUndelivered || delivered.Count == 0))
                 ShowUndelivered(window, failed, retry: () => _ = ResendAsync(window, failed.Select(f => f.Target).ToList()));
-            else if (failed.Count == 0 && Settings.CloseAfterSend) Discard(window);
+            else if (failed.Count == 0 && Settings.CloseAfterSend) Discard(window, ask: false);
         }
         finally
         {

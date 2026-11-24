@@ -30,6 +30,12 @@ static class Snapshots
             titled.ToggleDeleteLock();
             Save(titled, Path.Combine(folder, "memo-delete-locked.png"));
             titled.ToggleDeleteLock();
+            // 버리기 물음 (Desk.Discard 와 같은 창, 모달 대신 그냥 띄워 찍음)
+            var ask = new DialogWindow(titled, "버리기") { Body = DialogWindow.Text("이 메모를 버릴까요?") };
+            ask.AddButton("취소", result: false);
+            ask.AddButton("버리기", primary: true, result: true);
+            Save(ask, Path.Combine(folder, "ask-discard.png"));
+            ask.Close();
             titled.BeginTitleEdit();
             Save(titled, Path.Combine(folder, "memo-title-edit.png"));
             titled.EndTitleEdit(commit: false);
@@ -123,7 +129,15 @@ static class Snapshots
         var element = (FrameworkElement)window.Content;
         double scale = VisualTreeHelper.GetDpi(window).DpiScaleX * zoom;
         var bitmap = new RenderTargetBitmap((int)Math.Ceiling(element.ActualWidth * scale), (int)Math.Ceiling(element.ActualHeight * scale), 96 * scale, 96 * scale, PixelFormats.Pbgra32);
-        bitmap.Render(element);
+        // 창 바탕(Window.Background)은 내용 밖에 있으므로 먼저 칠함 (안 그러면 어두운 창의 글자가 흰 바탕에 찍힘)
+        var visual = new DrawingVisual();
+        using (var context = visual.RenderOpen())
+        {
+            var area = new Rect(0, 0, element.ActualWidth, element.ActualHeight);
+            if (window.Background is { } background) context.DrawRectangle(background, null, area);
+            context.DrawRectangle(new VisualBrush(element), null, area);
+        }
+        bitmap.Render(visual);
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(bitmap));
         using var stream = File.Create(path);

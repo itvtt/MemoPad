@@ -160,13 +160,17 @@ public sealed partial class Desk
         window.Close();
     }
 
-    /// <summary>버리기: 휴지통으로 (휴지통을 안 쓰면 물어보고 지움). 삭제 잠긴 메모는 그대로</summary>
-    public void Discard(MemoWindow window)
+    /// <summary>
+    /// 버리기: 물어보고 휴지통으로 (휴지통을 안 쓰면 지움). 삭제 잠긴 메모는 그대로.
+    /// ask = false 는 보낸 뒤 버리기 설정용 (그때도 휴지통을 안 쓰면 물어봄)
+    /// </summary>
+    public void Discard(MemoWindow window, bool ask = true)
     {
         if (window.Memo.DeleteLocked) return;
         window.SaveNow();
         var memo = window.Memo;
-        if (!Settings.UseTrash && window.HasBody && !Dialogs.Ask(window, "버리기", "메모를 버리시겠습니까?")) return;
+        bool askNow = ask || !Settings.UseTrash && window.HasBody;
+        if (askNow && !Dialogs.Ask(window, "버리기", Settings.UseTrash ? "이 메모를 버릴까요?" : "이 메모를 버릴까요?\n휴지통을 쓰지 않아 되살릴 수 없습니다.", "버리기", "취소")) return;
         bool empty = !window.HasBody && memo.Attachments.Count == 0;
         window.Close();
         if (empty) Store.Delete(memo);

@@ -249,23 +249,30 @@ internal sealed class ManagerWindow : Window
     private void DeleteSelected()
     {
         var memos = SelectedMemos();
-        // 삭제 잠긴 메모는 그대로 (알려 줌)
+        // 삭제 잠긴 메모는 그대로 (물을 때 알려 줌)
         int locked = memos.RemoveAll(m => m.DeleteLocked);
-        if (memos.Count > 0 && _folder == TrashKey)
+        if (memos.Count == 0)
         {
-            if (!Dialogs.Ask(this, "완전히 지우기", $"고른 메모 {memos.Count}개를 완전히 지울까요? 되살릴 수 없습니다.")) return;
+            if (locked > 0) Dialogs.Info(this, "버리기", "삭제 잠긴 메모는 버릴 수 없습니다.");
+            return;
+        }
+        string kept = locked > 0 ? $"\n삭제 잠긴 메모 {locked}개는 그대로 둡니다." : "";
+        string which = memos.Count == 1 ? "고른 메모를" : $"고른 메모 {memos.Count}개를";
+        if (_folder == TrashKey)
+        {
+            if (!Dialogs.Ask(this, "완전히 지우기", $"{which} 완전히 지울까요? 되살릴 수 없습니다." + kept)) return;
             foreach (var memo in memos) _desk.Store.Delete(memo);
         }
         else
         {
+            if (!Dialogs.Ask(this, "버리기", $"{which} 버릴까요?" + kept, "버리기", "취소")) return;
             foreach (var memo in memos)
             {
                 if (_desk.WindowOf(memo) is { } window) { window.SaveNow(); window.Close(); }
                 _desk.Store.MoveToTrash(memo, _desk.Settings.UseTrash);
             }
         }
-        if (memos.Count > 0) Reload();
-        if (locked > 0) Dialogs.Info(this, "버리기", $"삭제 잠긴 메모 {locked}개는 그대로 둡니다.");
+        Reload();
     }
 
     private void Restore()

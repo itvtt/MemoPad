@@ -169,7 +169,7 @@ static partial class Program
         }
     }
 
-    /// <summary>삭제 잠금: 머리 자물쇠 단추 · ✕ 꺼짐 · 버리기 안 됨 · 저장 · 풀면 버려짐</summary>
+    /// <summary>버리기는 늘 물어봄 · 삭제 잠금: 머리 자물쇠 단추 · ✕ 꺼짐 · 버리기 안 됨 · 저장 · 풀면 물어보고 버림</summary>
     private static async Task DeleteLock()
     {
         string folder = Folder("desk-deletelock");
@@ -187,19 +187,35 @@ static partial class Program
             Equal((true, Icons.Lock, false), (window.Memo.DeleteLocked, (string)window.DeleteLockButton.Content, window.CloseButton.IsEnabled), "잠그면 닫힌 자물쇠 · ✕ 꺼짐");
             Assert(new MemoStore(folder).Find(window.Memo.Id)?.DeleteLocked == true, "삭제 잠금 저장");
 
+            var asked = new List<string>();
+            bool answer = false;
+            Dialogs.TestAnswer = (title, message) => { asked.Add($"{title}: {message}"); return answer; };
             desk.Discard(window);
             await Task.Delay(100);
             Assert(window.IsVisible && !window.Memo.Deleted && desk.WindowOf(window.Memo) is not null, "잠긴 메모는 버리기 (✕ · Alt+F4 · 메뉴) 안 됨");
+            Equal(0, asked.Count, "잠긴 메모는 묻지도 않음");
 
             window.ToggleDeleteLock();
             Equal((false, true), (window.Memo.DeleteLocked, window.CloseButton.IsEnabled), "풀면 ✕ 다시 켜짐");
             var memo = window.Memo;
             desk.Discard(window);
             await Task.Delay(100);
-            Assert(memo.Deleted && desk.WindowOf(memo) is null, "풀면 버려짐 (휴지통)");
+            Equal("버리기: 이 메모를 버릴까요?", asked.SingleOrDefault(), "버리기 전에 물어봄");
+            Assert(!memo.Deleted && desk.WindowOf(memo) is not null, "[취소] = 그대로");
+            answer = true;
+            desk.Discard(window);
+            await Task.Delay(100);
+            Assert(memo.Deleted && desk.WindowOf(memo) is null, "[버리기] = 휴지통으로");
+
+            // 빈 메모도 물어봄
+            asked.Clear();
+            var empty = desk.NewMemo();
+            desk.Discard(empty);
+            Equal(1, asked.Count, "빈 메모도 물어봄");
         }
         finally
         {
+            Dialogs.TestAnswer = null;
             foreach (var window in desk.Windows.ToList()) window.Close();
             desk.Shutdown();
         }

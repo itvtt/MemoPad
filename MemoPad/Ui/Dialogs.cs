@@ -73,8 +73,12 @@ internal class DialogWindow : Window
 
 internal static class Dialogs
 {
+    /// <summary>시험용: 정해 두면 창을 띄우지 않고 이 답 (제목 · 내용을 받음)</summary>
+    internal static Func<string, string, bool>? TestAnswer;
+
     public static bool Ask(Window? owner, string title, string message, string yes = "예", string no = "아니요")
     {
+        if (TestAnswer is { } answer) return answer(title, message);
         var dialog = new DialogWindow(owner, title) { Body = DialogWindow.Text(message) };
         dialog.AddButton(no, result: false);
         dialog.AddButton(yes, primary: true, result: true);
