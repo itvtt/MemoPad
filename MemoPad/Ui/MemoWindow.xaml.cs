@@ -20,8 +20,8 @@ public partial class MemoWindow : Window
 {
     /// <summary>접은 메모 사각형 한 변 (DIP). 정음 메모패드는 22 픽셀</summary>
     private const double CollapsedSize = 24;
-    /// <summary>제목이 보이는 접은 메모의 최대 너비 (DIP, 펼친 메모보다 넓어지지도 않음)</summary>
-    private const double CollapsedMaxWidth = 200;
+    /// <summary>제목이 보이는 접은 메모의 최대 너비 (DIP): 한글 8자쯤, 넘으면 … (펼친 메모보다 넓어지지도 않음)</summary>
+    internal const double CollapsedMaxWidth = 130;
     private static readonly Brush DefaultTitleBrush = Frozen(0x99), CustomTitleBrush = Frozen(0xD9);
     private readonly Desk _desk;
     /// <summary>접은 메모의 너비 (DIP): 글자가 없으면 사각형, 있으면 글자 + 사각형</summary>

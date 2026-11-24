@@ -133,6 +133,8 @@ static partial class Program
             await Task.Delay(150);
             int longerWidth = window.PixelBounds.Right - window.PixelBounds.Left;
             Assert(longerWidth > titledWidth, $"긴 제목은 접은 메모도 넓게: {titledWidth} → {longerWidth}");
+            double scale = System.Windows.Media.VisualTreeHelper.GetDpi(window).DpiScaleX;
+            Assert(longerWidth <= Math.Round(MemoWindow.CollapsedMaxWidth * scale), $"그래도 최대 너비까지만 (한글 8자쯤, 나머지는 …): {longerWidth}");
             window.ToggleCollapse();
 
             // Esc = 그대로

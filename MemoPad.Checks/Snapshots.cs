@@ -35,6 +35,8 @@ static class Snapshots
             Save(memo, Path.Combine(folder, "collapsed.png"), zoom: 4);
             titled.ToggleCollapse();
             Save(titled, Path.Combine(folder, "collapsed-title.png"), zoom: 4);
+            titled.SetTitle("다음 주 월요일 주간 회의 자료 준비");
+            Save(titled, Path.Combine(folder, "collapsed-long-title.png"), zoom: 4);
             drawing.ToggleCollapse();
             Save(drawing, Path.Combine(folder, "collapsed-drawing.png"), zoom: 4);
             memo.Memo.Secured = true;
