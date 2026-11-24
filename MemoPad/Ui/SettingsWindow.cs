@@ -207,8 +207,8 @@ internal sealed class SettingsWindow : Window
             _desk.Hotkeys.Set(action, default);
             _keyMessage.Visibility = Visibility.Collapsed;
             ShowKeys();
-        }, size: 11);
-        clear.Width = clear.Height = 32;
+        }, size: 9);
+        clear.Width = clear.Height = 26;
         clear.Margin = new Thickness(6, 0, 0, 0);
         DockPanel.SetDock(clear, Dock.Right);
         row.Children.Add(clear);

@@ -78,7 +78,7 @@ public partial class MemoWindow
             var tool = new RadioButton
             {
                 Style = style, GroupName = "pen", ToolTip = name, IsChecked = color == _penColor,
-                Content = new System.Windows.Shapes.Ellipse { Width = 12, Height = 12, Fill = new SolidColorBrush(color), Stroke = new SolidColorBrush(Color.FromArgb(0x60, 0, 0, 0)), StrokeThickness = 0.8 }
+                Content = new System.Windows.Shapes.Ellipse { Width = 10, Height = 10, Fill = new SolidColorBrush(color), Stroke = new SolidColorBrush(Color.FromArgb(0x60, 0, 0, 0)), StrokeThickness = 0.8 }
             };
             tool.Checked += (_, _) =>
             {
@@ -94,7 +94,7 @@ public partial class MemoWindow
             var tool = new RadioButton
             {
                 Style = style, GroupName = "width", ToolTip = $"굵기 {width}", IsChecked = Math.Abs(width - _penWidth) < 0.1,
-                Content = new System.Windows.Shapes.Ellipse { Width = Math.Min(12, width + 2), Height = Math.Min(12, width + 2), Fill = new SolidColorBrush(Color.FromArgb(0xCC, 0, 0, 0)) }
+                Content = new System.Windows.Shapes.Ellipse { Width = Math.Min(10, width + 2), Height = Math.Min(10, width + 2), Fill = new SolidColorBrush(Color.FromArgb(0xCC, 0, 0, 0)) }
             };
             double chosen = width;
             tool.Checked += (_, _) => { _penWidth = chosen; ApplyPen(); };
@@ -117,7 +117,7 @@ public partial class MemoWindow
 
     private Button InkButton(string glyph, string tip, Action action)
     {
-        var button = new Button { Style = (Style)Resources["MemoButton"], Content = glyph, ToolTip = tip, Width = 24 };
+        var button = new Button { Style = (Style)Resources["MemoButton"], Content = glyph, ToolTip = tip, Width = 19 };
         button.Click += (_, _) => action();
         return button;
     }

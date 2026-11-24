@@ -718,7 +718,7 @@ public partial class MemoWindow : Window
                 Orientation = Orientation.Horizontal,
                 Children =
                 {
-                    new TextBlock { Text = Icons.Attach, FontFamily = Icons.Font, FontSize = 10.5, Foreground = new SolidColorBrush(Color.FromArgb(0xB3, 0, 0, 0)), VerticalAlignment = VerticalAlignment.Center },
+                    new TextBlock { Text = Icons.Attach, FontFamily = Icons.Font, FontSize = 8.5, Foreground = new SolidColorBrush(Color.FromArgb(0xB3, 0, 0, 0)), VerticalAlignment = VerticalAlignment.Center },
                     new TextBlock { Text = text, Margin = new Thickness(4, 0, 0, 0), FontSize = 11.5, MaxWidth = 180, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = new SolidColorBrush(Color.FromArgb(0xD9, 0, 0, 0)) }
                 }
             }

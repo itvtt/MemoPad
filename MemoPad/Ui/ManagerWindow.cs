@@ -148,7 +148,7 @@ internal sealed class ManagerWindow : Window
         var number = new TextBlock { Text = count.ToString(), Foreground = (Brush)Application.Current.Resources["MutedTextBrush"], FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
         DockPanel.SetDock(number, Dock.Right);
         row.Children.Add(number);
-        row.Children.Add(new TextBlock { Text = glyph, FontFamily = Icons.Font, FontSize = 13, Width = 24, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Color.FromRgb(0xB8, 0xBA, 0xC2)) });
+        row.Children.Add(new TextBlock { Text = glyph, FontFamily = Icons.Font, FontSize = 10.5, Width = 22, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Color.FromRgb(0xB8, 0xBA, 0xC2)) });
         row.Children.Add(new TextBlock { Text = label, FontSize = 13.5, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center });
         return new ListBoxItem { Content = row, Tag = key };
     }
@@ -202,7 +202,7 @@ internal sealed class ManagerWindow : Window
         var meta = new StackPanel { Margin = new Thickness(12, 0, 4, 0), HorizontalAlignment = HorizontalAlignment.Right };
         Grid.SetColumn(meta, 2);
         var kind = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-        void Glyph(string g, string tip) => kind.Children.Add(new TextBlock { Text = g, FontFamily = Icons.Font, FontSize = 11, Margin = new Thickness(6, 0, 0, 0), Foreground = new SolidColorBrush(Color.FromRgb(0xB8, 0xBA, 0xC2)), ToolTip = tip, VerticalAlignment = VerticalAlignment.Center });
+        void Glyph(string g, string tip) => kind.Children.Add(new TextBlock { Text = g, FontFamily = Icons.Font, FontSize = 9, Margin = new Thickness(6, 0, 0, 0), Foreground = new SolidColorBrush(Color.FromRgb(0xB8, 0xBA, 0xC2)), ToolTip = tip, VerticalAlignment = VerticalAlignment.Center });
         if (memo.Visible && !memo.Deleted) Glyph(Icons.Show, "바탕화면에 있음");
         if (memo.DeleteLocked) Glyph(Icons.Lock, "삭제 잠김");
         if (memo.Alarm is { Done: false }) Glyph(Icons.Clock, $"알람 {memo.Alarm.At:M/d HH:mm}");

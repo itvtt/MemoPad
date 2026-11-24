@@ -49,7 +49,7 @@ internal static class Chrome
         var bar = new Grid { Height = TitleHeight, Background = (Brush)Application.Current.Resources["TitleBrush"] };
         var left = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(16, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
         if (glyph.Length > 0)
-            left.Children.Add(new TextBlock { Text = glyph, FontFamily = Icons.Font, FontSize = 14, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Color.FromRgb(0xD9, 0xDC, 0xE3)), Margin = new Thickness(0, 0, 9, 0) });
+            left.Children.Add(new TextBlock { Text = glyph, FontFamily = Icons.Font, FontSize = 11, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Color.FromRgb(0xD9, 0xDC, 0xE3)), Margin = new Thickness(0, 0, 9, 0) });
         var titleText = new TextBlock { Text = title, FontSize = 14, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
         left.Children.Add(titleText);
         bar.Children.Add(left);
@@ -87,7 +87,7 @@ internal static class Chrome
         var button = new Button
         {
             Style = (Style)Application.Current.Resources[close ? "CloseChromeButtonStyle" : "ChromeButtonStyle"],
-            Content = new TextBlock { Text = glyph, FontFamily = Icons.Font, FontSize = 10 },
+            Content = new TextBlock { Text = glyph, FontFamily = Icons.Font, FontSize = 8 },
             ToolTip = tip
         };
         button.Click += (_, _) => action();
@@ -96,7 +96,7 @@ internal static class Chrome
     }
 
     /// <summary>둥근 아이콘 단추 (제목 표시줄 · 도구 막대)</summary>
-    public static Button IconButton(string glyph, string tip, Action action, double size = 15)
+    public static Button IconButton(string glyph, string tip, Action action, double size = 12)
     {
         var button = new Button
         {
