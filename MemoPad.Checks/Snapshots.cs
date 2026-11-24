@@ -22,14 +22,24 @@ static class Snapshots
             Save(memo, Path.Combine(folder, "memo.png"));
             var drawing = desk.NewMemo(MemoKind.Drawing);
             Save(drawing, Path.Combine(folder, "drawing.png"));
-            // 접은 메모 (작은 사각형): 글 · 그림 · 보안, 8배로
+            // 제목 붙인 메모 · 제목 고치는 중
+            var titled = desk.NewMemo();
+            titled.ReplaceRtf(RtfText.FromPlain("월요일 10시\n지난주 실적 정리"));
+            titled.SetTitle("주간 회의");
+            Save(titled, Path.Combine(folder, "memo-title.png"));
+            titled.BeginTitleEdit();
+            Save(titled, Path.Combine(folder, "memo-title-edit.png"));
+            titled.EndTitleEdit(commit: false);
+            // 접은 메모 (사각형 + 제목 · 본문 첫 줄): 글 · 제목 · 그림 · 보안, 4배로
             memo.ToggleCollapse();
-            Save(memo, Path.Combine(folder, "collapsed.png"), zoom: 8);
+            Save(memo, Path.Combine(folder, "collapsed.png"), zoom: 4);
+            titled.ToggleCollapse();
+            Save(titled, Path.Combine(folder, "collapsed-title.png"), zoom: 4);
             drawing.ToggleCollapse();
-            Save(drawing, Path.Combine(folder, "collapsed-drawing.png"), zoom: 8);
+            Save(drawing, Path.Combine(folder, "collapsed-drawing.png"), zoom: 4);
             memo.Memo.Secured = true;
             memo.ApplyLook();
-            Save(memo, Path.Combine(folder, "collapsed-secured.png"), zoom: 8);
+            Save(memo, Path.Combine(folder, "collapsed-secured.png"), zoom: 4);
             desk.ShowManager();
             Save(Application.Current.Windows.OfType<Window>().First(w => w.Title.StartsWith("메모 관리기")), Path.Combine(folder, "manager.png"));
             desk.ShowSettings();

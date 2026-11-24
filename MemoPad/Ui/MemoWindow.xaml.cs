@@ -20,7 +20,12 @@ public partial class MemoWindow : Window
 {
     /// <summary>접은 메모 사각형 한 변 (DIP). 정음 메모패드는 22 픽셀</summary>
     private const double CollapsedSize = 24;
+    /// <summary>제목이 보이는 접은 메모의 최대 너비 (DIP, 펼친 메모보다 넓어지지도 않음)</summary>
+    private const double CollapsedMaxWidth = 200;
+    private static readonly Brush DefaultTitleBrush = Frozen(0x99), CustomTitleBrush = Frozen(0xD9);
     private readonly Desk _desk;
+    /// <summary>접은 메모의 너비 (DIP): 글자가 없으면 사각형, 있으면 글자 + 사각형</summary>
+    private double _faceWidth = CollapsedSize;
     private readonly DispatcherTimer _saveTimer;
     private bool _loading, _dirty, _unlocked, _placed;
 
@@ -53,6 +58,8 @@ public partial class MemoWindow : Window
         Closing += (_, _) => SaveNow();
         Header.MouseEnter += (_, _) => ApplyTitle();
         Header.MouseLeave += (_, _) => ApplyTitle();
+        // 다른 곳을 누르면 (다른 창 · 본문 · 메뉴) 그대로 저장
+        TitleEditor.LostKeyboardFocus += (_, _) => EndTitleEdit(commit: true, focusBody: false);
 
         LoadContent();
         ApplyLook();
@@ -233,9 +240,9 @@ public partial class MemoWindow : Window
         // 화면 밖이면 (모니터를 뺀 경우) 주 모니터 안으로
         if (Memo.Collapsed)
         {
-            int size = SquarePixels;
-            var area = Native.WorkAreaAt(Memo.X + Memo.Width - size / 2, Memo.Y + size / 2);
-            Memo.X = Math.Clamp(Memo.X + Memo.Width - size, area.Left, area.Right - size) + size - Memo.Width;
+            int width = FacePixels, size = SquarePixels;
+            var area = Native.WorkAreaAt(Memo.X + Memo.Width - width / 2, Memo.Y + size / 2);
+            Memo.X = Math.Clamp(Memo.X + Memo.Width - width, area.Left, area.Right - width) + width - Memo.Width;
             Memo.Y = Math.Clamp(Memo.Y, area.Top, area.Bottom - size);
         }
         else
@@ -248,12 +255,22 @@ public partial class MemoWindow : Window
         ApplyBounds();
     }
 
-    /// <summary>접은 메모 사각형 한 변 (픽셀)</summary>
+    /// <summary>접은 메모 사각형 한 변 = 접은 메모 높이 (픽셀)</summary>
     private int SquarePixels => (int)Math.Round(CollapsedSize * Scale);
+
+    /// <summary>접은 메모 너비 (픽셀): 펼친 메모보다 넓지 않게</summary>
+    private int FacePixels
+    {
+        get
+        {
+            int width = (int)Math.Round(_faceWidth * Scale), square = SquarePixels;
+            return Memo.Width > 0 ? Math.Clamp(width, square, Math.Max(square, Memo.Width)) : Math.Max(width, square);
+        }
+    }
 
     /// <summary>
     /// 메모 자리(Memo.X · Y · Width · Height)는 늘 펼친 메모 기준. 접으면 그 오른쪽 위 모서리에 작은 사각형
-    /// (정음 메모패드처럼 접기 단추 자리), 사각형을 옮기면 펼칠 메모도 따라감
+    /// (정음 메모패드처럼 접기 단추 자리) 과 그 왼쪽에 제목, 접은 메모를 옮기면 펼칠 메모도 따라감
     /// </summary>
     private void ApplyBounds()
     {
@@ -261,7 +278,8 @@ public partial class MemoWindow : Window
         int x = Memo.X, y = Memo.Y, width = Memo.Width, height = Memo.Height;
         if (Memo.Collapsed)
         {
-            width = height = SquarePixels;
+            width = FacePixels;
+            height = SquarePixels;
             x = Memo.X + Memo.Width - width;
         }
         Native.SetWindowPos(Native.Handle(this), IntPtr.Zero, x, y, width, height, Native.SWP_NOZORDER | Native.SWP_NOACTIVATE);
@@ -286,10 +304,10 @@ public partial class MemoWindow : Window
         _desk.Save(Memo);
     }
 
-    /// <summary>창의 왼쪽 위를 (x, y) 로 (바탕화면 메모 정렬). 접은 메모는 사각형이 그 자리에</summary>
+    /// <summary>창의 왼쪽 위를 (x, y) 로 (바탕화면 메모 정렬). 접은 메모는 접은 모양이 그 자리에</summary>
     public void MoveTo(int x, int y)
     {
-        if (Memo.Collapsed) x += SquarePixels - Memo.Width;
+        if (Memo.Collapsed) x += FacePixels - Memo.Width;
         Memo.X = x;
         Memo.Y = y;
         ApplyBounds();
@@ -364,7 +382,10 @@ public partial class MemoWindow : Window
         ApplyBounds();
     }
 
-    /// <summary>접은 사각형 안: 글 메모는 글줄, 그림 메모는 선 하나, 잠긴 보안 메모는 자물쇠 (오른쪽 아래는 접힌 귀)</summary>
+    /// <summary>
+    /// 접은 메모: 사각형 안은 글 메모 = 글줄, 그림 메모 = 선 하나, 잠긴 보안 메모 = 자물쇠 (오른쪽 아래는 접힌 귀).
+    /// 사각형 왼쪽에 제목 (없으면 본문 첫 줄, 잠긴 보안 메모 · 빈 메모는 사각형만)
+    /// </summary>
     private void ApplyFace()
     {
         bool locked = Memo.Secured && !_unlocked;
@@ -375,6 +396,19 @@ public partial class MemoWindow : Window
             ? "M 5,16 C 7.5,6 10.5,18 13,10 S 17,9 18,7"
             : "M 5.5,7.5 H 15.5 M 5.5,11.5 H 17 M 5.5,15.5 H 11.5");
         CollapsedFace.ToolTip = (locked ? "보안 메모" : Memo.FirstLine) + "\n두 번 클릭하면 펼칩니다";
+
+        string label = Memo.Title.Length > 0 ? Memo.Title : locked ? "" : Memo.BodyLine;
+        FaceText.Text = label;
+        FaceText.Visibility = label.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        double width = CollapsedSize;
+        if (label.Length > 0)
+        {
+            FaceText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            width = Math.Min(CollapsedMaxWidth, CollapsedSize + Math.Ceiling(FaceText.DesiredSize.Width) + 2);
+        }
+        if (Math.Abs(width - _faceWidth) < 0.5) return;
+        _faceWidth = width;
+        if (Memo.Collapsed) ApplyBounds();
     }
 
     private void ApplySecure()
@@ -389,20 +423,32 @@ public partial class MemoWindow : Window
         }
     }
 
+    /// <summary>제목을 붙이지 않았을 때 머리에 보이는 것 (만든 날짜 · 보낸 사람 등)</summary>
+    private string DefaultTitle => Memo.Origin switch
+    {
+        MemoOrigin.Received => $"{Memo.From?.Label} · {Formats.Title(Memo.ReceivedAt ?? Memo.Created)}",
+        MemoOrigin.CirculationReceived => $"{Memo.Circulation?.Originator.Label ?? Memo.From?.Label}의 회람",
+        MemoOrigin.CirculationResult => "회람 결과",
+        MemoOrigin.CirculationOriginal => "회람 원본",
+        MemoOrigin.Sent => "보냄 → " + string.Join(", ", Memo.SentTo.Select(p => p.Label)),
+        _ => Formats.Title(Memo.Created)
+    };
+
+    private static Brush Frozen(byte alpha)
+    {
+        var brush = new SolidColorBrush(Color.FromArgb(alpha, 0, 0, 0));
+        brush.Freeze();
+        return brush;
+    }
+
     private void ApplyTitle()
     {
-        string title = Memo.Collapsed && !(Memo.Secured && !_unlocked) ? Memo.FirstLine : Memo.Origin switch
-        {
-            MemoOrigin.Received => $"{Memo.From?.Label} · {Formats.Title(Memo.ReceivedAt ?? Memo.Created)}",
-            MemoOrigin.CirculationReceived => $"{Memo.Circulation?.Originator.Label ?? Memo.From?.Label}의 회람",
-            MemoOrigin.CirculationResult => "회람 결과",
-            MemoOrigin.CirculationOriginal => "회람 원본",
-            MemoOrigin.Sent => "보냄 → " + string.Join(", ", Memo.SentTo.Select(p => p.Label)),
-            _ => Formats.Title(Memo.Created)
-        };
-        TitleText.Text = title;
-        bool show = _desk.Settings.AlwaysShowTitle || IsActive || Header.IsMouseOver || Memo.Collapsed;
-        TitleText.Visibility = show ? Visibility.Visible : Visibility.Hidden;
+        bool custom = Memo.Title.Length > 0;
+        TitleText.Text = custom ? Memo.Title : DefaultTitle;
+        TitleText.Foreground = custom ? CustomTitleBrush : DefaultTitleBrush;
+        TitleText.FontWeight = custom ? FontWeights.SemiBold : FontWeights.Normal;
+        bool show = custom || _desk.Settings.AlwaysShowTitle || IsActive || Header.IsMouseOver;
+        TitleText.Visibility = show && !EditingTitle ? Visibility.Visible : Visibility.Hidden;
         HeaderButtons.Opacity = IsActive || Header.IsMouseOver ? 1 : 0.55;
         MenuButton.Opacity = HeaderButtons.Opacity;
 
@@ -412,8 +458,51 @@ public partial class MemoWindow : Window
         if (Memo.Locked) State(Icons.Lock, "잠김 (옮기기 · 크기 바꾸기 안 됨)");
         if (Memo.ReadOnly) State(Icons.ReadOnly, "읽기 전용");
         if (Memo.Secured) State("", "보안 메모");
-        Title = $"MemoPad - {Memo.FirstLine}";
+        Title = $"MemoPad - {Memo.Label}";
         if (Memo.Collapsed) ApplyFace();
+    }
+
+    // ── 제목 (머리에서 바로 고침: F2 · 메뉴 → 제목 바꾸기) ─────────────
+
+    internal bool EditingTitle => TitleEditor.Visibility == Visibility.Visible;
+
+    /// <summary>제목을 붙이거나 바꿈 ("" = 제목 없음: 머리에는 만든 날짜, 접으면 본문 첫 줄)</summary>
+    public void SetTitle(string title)
+    {
+        title = title.Trim();
+        if (title.Length > TitleEditor.MaxLength) title = title[..TitleEditor.MaxLength];
+        if (title == Memo.Title) return;
+        Memo.Title = title;
+        _desk.Save(Memo);
+        ApplyTitle();
+    }
+
+    /// <summary>머리의 제목 자리에 입력 칸을 엶 (접혀 있으면 펼쳐서). Enter · 다른 곳 누르기 = 저장, Esc = 취소, 비우면 제목 없음</summary>
+    public void BeginTitleEdit()
+    {
+        if (Memo.Collapsed) ToggleCollapse();
+        TitleEditor.Text = Memo.Title.Length > 0 ? Memo.Title : DefaultTitle;
+        TitleEditor.Visibility = Visibility.Visible;
+        ApplyTitle();
+        if (!IsActive) Activate();
+        // 메뉴에서 골랐으면 메뉴가 닫히며 포커스를 돌려놓은 뒤에
+        Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
+        {
+            if (!EditingTitle) return;
+            TitleEditor.Focus();
+            TitleEditor.SelectAll();
+        });
+    }
+
+    internal void EndTitleEdit(bool commit, bool focusBody = true)
+    {
+        if (!EditingTitle) return;
+        string text = TitleEditor.Text.Trim();
+        TitleEditor.Visibility = Visibility.Collapsed;
+        // 제목이 없던 메모에서 미리 넣어 둔 날짜를 그대로 두면 제목 없음 그대로
+        if (commit && !(Memo.Title.Length == 0 && text == DefaultTitle)) SetTitle(text);
+        ApplyTitle();
+        if (focusBody && IsActive) (Memo.Kind == MemoKind.Drawing ? (IInputElement)Ink : Editor).Focus();
     }
 
     private void ApplyStatus()
@@ -531,6 +620,7 @@ public partial class MemoWindow : Window
     /// <summary>접기 ↔ 펼치기. 접으면 오른쪽 위 모서리의 작은 사각형, 펼치면 그 사각형 자리를 오른쪽 위로 해서 열림</summary>
     public void ToggleCollapse()
     {
+        EndTitleEdit(commit: true, focusBody: false);
         SaveNow();
         CaptureBounds();
         Memo.Collapsed = !Memo.Collapsed;
@@ -726,6 +816,15 @@ public partial class MemoWindow : Window
     {
         var mods = Keyboard.Modifiers;
         if (e.Key == Key.System && e.SystemKey == Key.F4) { e.Handled = true; _desk.Discard(this); return; }
+        if (TitleEditor.IsKeyboardFocusWithin)
+        {
+            if (e.Key is Key.Enter or Key.Escape) { e.Handled = true; EndTitleEdit(commit: e.Key == Key.Enter); }
+            // 한글을 쓰는 중에 누른 Enter: 글자가 다 들어간 뒤에 저장
+            else if (e.Key == Key.ImeProcessed && e.ImeProcessedKey == Key.Enter)
+                Dispatcher.BeginInvoke(DispatcherPriority.Background, () => EndTitleEdit(commit: true));
+            return;
+        }
+        if (e.Key == Key.F2 && mods == ModifierKeys.None) { e.Handled = true; BeginTitleEdit(); return; }
         if (Memo.Collapsed && mods == ModifierKeys.None && e.Key is Key.Enter or Key.Space) { e.Handled = true; ToggleCollapse(); return; }
         if (e.Key == Key.F4 && mods == ModifierKeys.None) { e.Handled = true; ConvertTypo(); return; }
         if (mods == ModifierKeys.Control)

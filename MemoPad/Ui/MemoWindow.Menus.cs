@@ -70,6 +70,7 @@ public partial class MemoWindow
             items.Add(new Separator());
         }
 
+        items.Add(Item("제목 바꾸기", BeginTitleEdit, Icons.Edit, "F2"));
         items.Add(Item("알람…", () => _desk.EditAlarm(this), Icons.Clock));
         items.Add(ColorMenu());
         if (text)
@@ -437,7 +438,7 @@ public partial class MemoWindow
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
             Filter = "서식 있는 문자열 (*.rtf)|*.rtf|텍스트 문서 (*.txt)|*.txt",
-            FileName = Files.SafeName(Memo.FirstLine.Length > 30 ? Memo.FirstLine[..30] : Memo.FirstLine),
+            FileName = Files.SafeName(Memo.Label.Length > 30 ? Memo.Label[..30] : Memo.Label),
             Title = "파일로 저장"
         };
         if (dialog.ShowDialog(this) != true) return;
@@ -457,7 +458,7 @@ public partial class MemoWindow
     /// <summary>본문을 그림(PNG)으로</summary>
     private void SaveImage()
     {
-        var dialog = new Microsoft.Win32.SaveFileDialog { Filter = "PNG 그림 (*.png)|*.png", FileName = Files.SafeName(Memo.FirstLine.Length > 30 ? Memo.FirstLine[..30] : Memo.FirstLine) + ".png", Title = "그림으로 저장" };
+        var dialog = new Microsoft.Win32.SaveFileDialog { Filter = "PNG 그림 (*.png)|*.png", FileName = Files.SafeName(Memo.Label.Length > 30 ? Memo.Label[..30] : Memo.Label) + ".png", Title = "그림으로 저장" };
         if (dialog.ShowDialog(this) != true) return;
         var image = Memo.Kind == MemoKind.Drawing ? RenderInk() : RenderVisual(Root);
         var encoder = new PngBitmapEncoder();
@@ -511,7 +512,7 @@ public partial class MemoWindow
                 document.Blocks.Add(block);
             }
         }
-        dialog.PrintDocument(((IDocumentPaginatorSource)document).DocumentPaginator, $"MemoPad - {Memo.FirstLine}");
+        dialog.PrintDocument(((IDocumentPaginatorSource)document).DocumentPaginator, $"MemoPad - {Memo.Label}");
     }
 }
 

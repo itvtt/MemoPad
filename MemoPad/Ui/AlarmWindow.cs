@@ -163,7 +163,7 @@ internal sealed class AlarmPopup : DialogWindow
             CornerRadius = new CornerRadius(8),
             Background = new SolidColorBrush(MemoColors.Parse(memo.Color)),
             Padding = new Thickness(12, 8, 12, 8),
-            Child = new TextBlock { Text = memo.Secured ? "(보안 메모)" : memo.FirstLine, Foreground = new SolidColorBrush(Color.FromRgb(0x1F, 0x21, 0x24)), TextWrapping = TextWrapping.Wrap, MaxHeight = 80 }
+            Child = new TextBlock { Text = memo.Title.Length > 0 ? memo.Title : memo.Secured ? "(보안 메모)" : memo.FirstLine, Foreground = new SolidColorBrush(Color.FromRgb(0x1F, 0x21, 0x24)), TextWrapping = TextWrapping.Wrap, MaxHeight = 80 }
         });
         if (alarm.Note.Length > 0) panel.Children.Add(new TextBlock { Text = alarm.Note, Margin = new Thickness(0, 10, 0, 0), TextWrapping = TextWrapping.Wrap });
         Body = panel;

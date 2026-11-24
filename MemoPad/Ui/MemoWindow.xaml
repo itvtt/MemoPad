@@ -78,6 +78,24 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <!-- 머리의 제목 고치기 칸 (F2 · 메뉴 → 제목 바꾸기) -->
+        <Style x:Key="TitleEditorStyle" TargetType="TextBox">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#E6000000" />
+            <Setter Property="CaretBrush" Value="#E6000000" />
+            <Setter Property="SelectionBrush" Value="#663B82F6" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="#1A000000" BorderBrush="#66000000" BorderThickness="0,0,0,1" CornerRadius="3,3,0,0" Padding="1,2,1,1">
+                            <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style TargetType="Paragraph"><Setter Property="Margin" Value="0" /></Style>
     </Window.Resources>
 
@@ -102,7 +120,10 @@
                 </StackPanel>
                 <StackPanel x:Name="StateIcons" DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,2,0" VerticalAlignment="Center"
                             TextElement.FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" TextElement.FontSize="11" TextElement.Foreground="#8C000000" />
-                <TextBlock x:Name="TitleText" Margin="4,0,4,0" VerticalAlignment="Center" FontSize="11.5" Foreground="#99000000" TextTrimming="CharacterEllipsis" />
+                <Grid Margin="4,0,4,0" VerticalAlignment="Center">
+                    <TextBlock x:Name="TitleText" VerticalAlignment="Center" FontSize="11.5" Foreground="#99000000" TextTrimming="CharacterEllipsis" />
+                    <TextBox x:Name="TitleEditor" Style="{StaticResource TitleEditorStyle}" MaxLength="60" Visibility="Collapsed" />
+                </Grid>
             </DockPanel>
         </Border>
 
@@ -136,11 +157,12 @@
             <TextBlock x:Name="StatusText" FontSize="10.5" Foreground="#8C000000" TextTrimming="CharacterEllipsis" />
         </Border>
 
-        <!-- 접은 메모: 메모 색의 작은 사각형 (정음 메모패드처럼). 두 번 클릭 = 펼치기, 끌기 = 옮기기, 오른쪽 클릭 = 메뉴 -->
-        <Border x:Name="CollapsedFace" Grid.RowSpan="5" Visibility="Collapsed" Background="Transparent"
-                ToolTipService.InitialShowDelay="300"
-                MouseLeftButtonDown="Header_MouseLeftButtonDown" MouseRightButtonUp="Header_MouseRightButtonUp">
-            <Viewbox Stretch="Uniform">
+        <!-- 접은 메모: 메모 색의 작은 사각형 (정음 메모패드처럼) + 왼쪽에 제목(없으면 본문 첫 줄).
+             두 번 클릭 = 펼치기, 끌기 = 옮기기, 오른쪽 클릭 = 메뉴 -->
+        <DockPanel x:Name="CollapsedFace" Grid.RowSpan="5" Visibility="Collapsed" Background="Transparent"
+                   ToolTipService.InitialShowDelay="300"
+                   MouseLeftButtonDown="Header_MouseLeftButtonDown" MouseRightButtonUp="Header_MouseRightButtonUp">
+            <Viewbox DockPanel.Dock="Right" Width="24" Height="24" Stretch="Uniform">
                 <Grid Width="24" Height="24">
                     <Path x:Name="FaceLines" Data="M 5.5,7.5 H 15.5 M 5.5,11.5 H 17 M 5.5,15.5 H 11.5" Stroke="#6B000000" StrokeThickness="1.4"
                           StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
@@ -149,6 +171,8 @@
                                FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10" Foreground="#99000000" />
                 </Grid>
             </Viewbox>
-        </Border>
+            <TextBlock x:Name="FaceText" Margin="8,0,0,1" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" Foreground="#D9000000"
+                       TextTrimming="CharacterEllipsis" Visibility="Collapsed" />
+        </DockPanel>
     </Grid>
 </Window>

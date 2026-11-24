@@ -77,6 +77,9 @@ public sealed class MemoData
     /// <summary>찾기 · 목록용 일반 글자 (저장할 때 함께 씀)</summary>
     public string Text { get; set; } = "";
 
+    /// <summary>사용자가 붙인 제목 ("" = 없음: 머리에는 만든 날짜, 접으면 본문 첫 줄)</summary>
+    public string Title { get; set; } = "";
+
     public string Color { get; set; } = MemoColors.Default;
     /// <summary>창 위치 · 크기 (실제 화소, 화면 좌표)</summary>
     public int X { get; set; } = int.MinValue;
@@ -115,7 +118,8 @@ public sealed class MemoData
     /// <summary>받은 메모를 처음 열었을 때의 RTF (답장할 때 고쳤는지 보려고)</summary>
     public string ReceivedRtf { get; set; } = "";
 
-    [JsonIgnore] public string FirstLine
+    /// <summary>본문 첫 줄 (글이 없으면 "")</summary>
+    [JsonIgnore] public string BodyLine
     {
         get
         {
@@ -126,9 +130,14 @@ public sealed class MemoData
                 if (trimmed.Length == 0 || trimmed.StartsWith('[') && (trimmed.EndsWith("의 의견]") || trimmed == "[회람 결과입니다.]")) continue;
                 return trimmed.Length > 80 ? trimmed[..80] : trimmed;
             }
-            return Kind == MemoKind.Drawing ? "(그림)" : "(내용 없음)";
+            return "";
         }
     }
+
+    [JsonIgnore] public string FirstLine => BodyLine is { Length: > 0 } line ? line : Kind == MemoKind.Drawing ? "(그림)" : "(내용 없음)";
+
+    /// <summary>목록 · 파일 이름에 쓸 이름: 제목, 없으면 본문 첫 줄</summary>
+    [JsonIgnore] public string Label => Title.Length > 0 ? Title : FirstLine;
 
     [JsonIgnore] public string KindText => Origin switch
     {

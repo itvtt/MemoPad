@@ -2,7 +2,7 @@ using System.Net;
 using MemoPad.Core;
 using MemoPad.Ui;
 
-/// <summary>메모 창 자리: 접기(작은 사각형) · 옮겨서 펼치기 · 정렬. 데이터 폴더 옮기기</summary>
+/// <summary>메모 창 자리: 접기(사각형 + 제목) · 옮겨서 펼치기 · 정렬 · 제목. 데이터 폴더 옮기기</summary>
 static partial class Program
 {
     private static void DataFolder()
@@ -48,26 +48,27 @@ static partial class Program
 
             window.ToggleCollapse();
             await Task.Delay(150);
-            var square = window.PixelBounds;
-            int side = square.Right - square.Left;
-            Equal(side, square.Bottom - square.Top, "접으면 정사각형");
-            Assert(side is >= 22 and <= 64, "작은 사각형: " + side);
-            Equal((open.Right, open.Top), (square.Right, square.Top), "사각형은 메모의 오른쪽 위");
+            var tab = window.PixelBounds;
+            int side = tab.Bottom - tab.Top, tabWidth = tab.Right - tab.Left;
+            Assert(side is >= 22 and <= 64, "접으면 낮은 한 줄: " + side);
+            Equal("접기 시험 첫 줄", window.FaceText.Text, "접은 메모에 본문 첫 줄");
+            Assert(tabWidth > side * 2 && tabWidth <= width, $"글자만큼 넓고 펼친 메모보다 넓지 않음: {tabWidth} (높이 {side}, 메모 {width})");
+            Equal((open.Right, open.Top), (tab.Right, tab.Top), "접은 메모는 메모의 오른쪽 위");
 
-            // 사각형을 끌어 옮긴 것처럼 → 펼치면 그 자리를 오른쪽 위로 해서 원래 크기로
-            Native.SetWindowPos(Native.Handle(window), IntPtr.Zero, 900, 350, side, side, Native.SWP_NOZORDER | Native.SWP_NOACTIVATE);
+            // 접은 메모를 끌어 옮긴 것처럼 → 펼치면 그 자리를 오른쪽 위로 해서 원래 크기로
+            Native.SetWindowPos(Native.Handle(window), IntPtr.Zero, 900, 350, tabWidth, side, Native.SWP_NOZORDER | Native.SWP_NOACTIVATE);
             window.ToggleCollapse();
             await Task.Delay(150);
             var again = window.PixelBounds;
-            Equal((900 + side, 350), (again.Right, again.Top), "옮긴 사각형 자리에서 펼침");
+            Equal((900 + tabWidth, 350), (again.Right, again.Top), "옮긴 자리에서 펼침");
             Equal((width, height), (again.Right - again.Left, again.Bottom - again.Top), "펼친 크기 그대로");
 
-            // 정렬: 접은 메모는 사각형이 정렬 자리에
+            // 정렬: 접은 메모가 정렬 자리에
             window.ToggleCollapse();
             window.MoveTo(500, 200);
             await Task.Delay(150);
             var moved = window.PixelBounds;
-            Equal((500, 200, side), (moved.Left, moved.Top, moved.Right - moved.Left), "정렬 자리에 사각형");
+            Equal((500, 200, tabWidth), (moved.Left, moved.Top, moved.Right - moved.Left), "정렬 자리에 접은 메모");
 
             // 다시 켜도 접힌 채로 같은 자리 (저장된 자리는 펼친 메모 기준)
             var memo = window.Memo;
@@ -75,7 +76,89 @@ static partial class Program
             var reopened = desk.Open(memo, activate: false);
             await Task.Delay(150);
             var restored = reopened.PixelBounds;
-            Equal((moved.Left, moved.Top, side), (restored.Left, restored.Top, restored.Right - restored.Left), "다시 열어도 같은 사각형");
+            Equal((moved.Left, moved.Top, tabWidth), (restored.Left, restored.Top, restored.Right - restored.Left), "다시 열어도 같은 자리 · 너비");
+
+            // 글이 없는 메모 · 잠긴 보안 메모는 사각형만
+            var empty = desk.NewMemo();
+            empty.ToggleCollapse();
+            await Task.Delay(150);
+            var square = empty.PixelBounds;
+            Equal(square.Right - square.Left, square.Bottom - square.Top, "빈 메모는 사각형만");
+            reopened.Memo.Secured = true;
+            reopened.ApplyLook();
+            await Task.Delay(150);
+            var secured = reopened.PixelBounds;
+            Equal((secured.Bottom - secured.Top, restored.Right), (secured.Right - secured.Left, secured.Right), "잠긴 보안 메모는 사각형만 (오른쪽 위 그대로)");
+        }
+        finally
+        {
+            foreach (var window in desk.Windows.ToList()) window.Close();
+            desk.Shutdown();
+        }
+    }
+
+    /// <summary>메모 제목: 머리에 보임 · 접은 메모에 보임 · 저장 · 입력 칸(Enter · Esc · 날짜 그대로) · 비우면 제목 없음</summary>
+    private static async Task MemoTitle()
+    {
+        string folder = Folder("desk-title");
+        var desk = new Desk(new AppSettings { Name = "제목", UseNetwork = false, StartupConfigured = true, Sound = false, AddressBookFolder = folder },
+            new MemoStore(folder), IPAddress.Parse("127.0.0.15"));
+        desk.Start();
+        try
+        {
+            var window = desk.NewMemo();
+            window.ReplaceRtf(RtfText.FromPlain("본문 첫 줄\n둘째 줄"));
+            await Task.Delay(100);
+            string dated = window.TitleText.Text;
+            Assert(dated.Contains('월') && window.Memo.Title.Length == 0, "처음엔 제목 없음 (머리에 날짜): " + dated);
+
+            window.SetTitle("  회의록  ");
+            Equal(("회의록", "회의록"), (window.Memo.Title, window.TitleText.Text), "제목 붙이기 (앞뒤 빈칸 뺌) · 머리에 보임");
+            Equal("회의록", new MemoStore(folder).Find(window.Memo.Id)?.Title, "제목 저장");
+
+            window.ToggleCollapse();
+            await Task.Delay(150);
+            Equal("회의록", window.FaceText.Text, "접으면 제목이 보임 (본문 첫 줄 대신)");
+            int titledWidth = window.PixelBounds.Right - window.PixelBounds.Left;
+
+            // 입력 칸: 접혀 있으면 펼쳐서 · Enter 저장
+            window.BeginTitleEdit();
+            Assert(!window.Memo.Collapsed && window.EditingTitle, "제목 바꾸기는 펼쳐서 입력 칸");
+            Equal("회의록", window.TitleEditor.Text, "입력 칸에 지금 제목");
+            window.TitleEditor.Text = "3층 회의 준비 자료 목록";
+            window.EndTitleEdit(commit: true);
+            Equal(("3층 회의 준비 자료 목록", false), (window.Memo.Title, window.EditingTitle), "Enter = 저장, 입력 칸 닫힘");
+
+            window.ToggleCollapse();
+            await Task.Delay(150);
+            int longerWidth = window.PixelBounds.Right - window.PixelBounds.Left;
+            Assert(longerWidth > titledWidth, $"긴 제목은 접은 메모도 넓게: {titledWidth} → {longerWidth}");
+            window.ToggleCollapse();
+
+            // Esc = 그대로
+            window.BeginTitleEdit();
+            window.TitleEditor.Text = "버릴 제목";
+            window.EndTitleEdit(commit: false);
+            Equal("3층 회의 준비 자료 목록", window.Memo.Title, "Esc = 그대로");
+
+            // 비우면 제목 없음 → 머리에 날짜, 접으면 본문 첫 줄
+            window.BeginTitleEdit();
+            window.TitleEditor.Text = " ";
+            window.EndTitleEdit(commit: true);
+            Equal(("", dated), (window.Memo.Title, window.TitleText.Text), "비우면 제목 없음 (머리에 날짜)");
+            window.ToggleCollapse();
+            await Task.Delay(100);
+            Equal("본문 첫 줄", window.FaceText.Text, "제목이 없으면 접은 메모에 본문 첫 줄");
+            window.ToggleCollapse();
+
+            // 제목이 없던 메모: 미리 넣은 날짜를 그대로 저장하면 제목 없음 그대로
+            window.BeginTitleEdit();
+            Equal(dated, window.TitleEditor.Text, "제목 없는 메모의 입력 칸엔 날짜");
+            window.EndTitleEdit(commit: true);
+            Equal("", window.Memo.Title, "날짜 그대로 두면 제목 없음 그대로");
+
+            Equal("회의록", new MemoData { Title = "회의록", Text = "본문" }.Label, "목록 · 파일 이름 = 제목");
+            Equal("본문", new MemoData { Text = "본문" }.Label, "제목이 없으면 본문 첫 줄");
         }
         finally
         {

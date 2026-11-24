@@ -163,7 +163,8 @@ internal sealed class ManagerWindow : Window
         };
         string text = _search.Text.Trim();
         if (text.Length > 0)
-            memos = memos.Where(m => !m.Secured && (m.Text.Contains(text, StringComparison.CurrentCultureIgnoreCase) || (m.From?.Label.Contains(text, StringComparison.CurrentCultureIgnoreCase) ?? false)));
+            memos = memos.Where(m => m.Title.Contains(text, StringComparison.CurrentCultureIgnoreCase)
+                || !m.Secured && (m.Text.Contains(text, StringComparison.CurrentCultureIgnoreCase) || (m.From?.Label.Contains(text, StringComparison.CurrentCultureIgnoreCase) ?? false)));
         return _folder == TrashKey ? memos.OrderByDescending(m => m.DeletedAt) : memos.OrderByDescending(m => m.Modified);
     }
 
@@ -191,9 +192,11 @@ internal sealed class ManagerWindow : Window
         grid.Children.Add(dot);
         var text = new StackPanel();
         Grid.SetColumn(text, 1);
-        string first = memo.Secured ? "(보안 메모)" : memo.FirstLine;
+        // 제목이 있으면 제목 · 본문, 없으면 본문 첫 줄 · 나머지
+        bool titled = memo.Title.Length > 0;
+        string first = titled ? memo.Title : memo.Secured ? "(보안 메모)" : memo.FirstLine;
         text.Children.Add(new TextBlock { Text = first, FontSize = 13.5, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
-        string second = memo.Secured ? "" : string.Join(" ", memo.Text.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).Skip(1)).Trim();
+        string second = memo.Secured ? "" : string.Join(" ", memo.Text.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).Skip(titled ? 0 : 1)).Trim();
         if (second.Length > 0) text.Children.Add(new TextBlock { Text = second, FontSize = 12, Foreground = (Brush)Application.Current.Resources["MutedTextBrush"], TextTrimming = TextTrimming.CharacterEllipsis });
         grid.Children.Add(text);
         var meta = new StackPanel { Margin = new Thickness(12, 0, 4, 0), HorizontalAlignment = HorizontalAlignment.Right };
