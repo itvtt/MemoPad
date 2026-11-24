@@ -32,7 +32,7 @@ public partial class MemoWindow
 
     // ── 메모 메뉴 (≡ · 머리 오른쪽 클릭) ─────────────────────────
 
-    private void OpenMemoMenu(UIElement? anchor)
+    internal ContextMenu OpenMemoMenu(UIElement? anchor)
     {
         SaveNow();
         var menu = new ContextMenu();
@@ -72,6 +72,11 @@ public partial class MemoWindow
 
         items.Add(Item("알람…", () => _desk.EditAlarm(this), Icons.Clock));
         items.Add(ColorMenu());
+        if (text)
+        {
+            items.Add(FontMenu());
+            items.Add(FontSizeMenu());
+        }
         items.Add(Sub("옵션", Icons.Settings,
             Item("항상 위", () => SetLayer(Memo.Layer == MemoLayer.Top ? MemoLayer.Normal : MemoLayer.Top), check: Memo.Layer == MemoLayer.Top),
             Item("항상 아래", () => SetLayer(Memo.Layer == MemoLayer.Bottom ? MemoLayer.Normal : MemoLayer.Bottom), check: Memo.Layer == MemoLayer.Bottom),
@@ -99,6 +104,7 @@ public partial class MemoWindow
         menu.PlacementTarget = anchor ?? this;
         menu.Placement = anchor is null ? PlacementMode.MousePoint : PlacementMode.Bottom;
         menu.IsOpen = true;
+        return menu;
     }
 
     private MenuItem ColorMenu()
@@ -119,6 +125,81 @@ public partial class MemoWindow
         menu.Items.Add(new MenuItem { Header = panel, StaysOpenOnClick = true, Template = PlainItemTemplate() });
         menu.Items.Add(Item("직접 고르기…", PickColor));
         return menu;
+    }
+
+    /// <summary>글꼴 고르기에 보이는 글꼴 (이 PC 에 있는 것만): 이름 · 메뉴에 보일 이름</summary>
+    private static readonly (string Name, string Label)[] FontChoices =
+    [
+        ("Malgun Gothic", "맑은 고딕"), ("Gulim", "굴림"), ("Dotum", "돋움"), ("Batang", "바탕"), ("Gungsuh", "궁서"),
+        ("NanumGothic", "나눔고딕"), ("NanumBarunGothic", "나눔바른고딕"), ("NanumMyeongjo", "나눔명조"), ("NanumSquare", "나눔스퀘어"),
+        ("Pretendard", "Pretendard"), ("D2Coding", "D2Coding"), ("Segoe UI", "Segoe UI"), ("Consolas", "Consolas")
+    ];
+
+    private static HashSet<string>? _installedFonts;
+
+    private static bool IsInstalled(string family)
+    {
+        _installedFonts ??= Fonts.SystemFontFamilies
+            .SelectMany(font => font.FamilyNames.Values.Append(font.Source))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return _installedFonts.Contains(family);
+    }
+
+    private static string FontLabel(string family) =>
+        FontChoices.FirstOrDefault(choice => string.Equals(choice.Name, family, StringComparison.OrdinalIgnoreCase)).Label ?? family;
+
+    // 메모 메뉴 → 글꼴: 맨 위 "기본" (설정의 글꼴), 많이 쓰는 글꼴은 그 글꼴로 보임, 그 밖은 "다른 글꼴…"
+    private MenuItem FontMenu()
+    {
+        bool enabled = CanChangeFont;
+        var menu = Sub("글꼴", "");
+        menu.IsEnabled = enabled;
+        string current = Memo.FontFamily;
+        menu.Items.Add(Item($"기본 ({FontLabel(_desk.Settings.FontFamily)})", () => SetFont("", Memo.FontSize), check: current.Length == 0));
+        menu.Items.Add(new Separator());
+        bool listed = false;
+        foreach (var (name, label) in FontChoices.Where(choice => IsInstalled(choice.Name)))
+        {
+            bool on = string.Equals(current, name, StringComparison.OrdinalIgnoreCase);
+            listed |= on;
+            var item = Item(label, () => SetFont(name, Memo.FontSize), check: on);
+            item.Header = new TextBlock { Text = label, FontFamily = new FontFamily(name + ", Malgun Gothic"), FontSize = 13 };
+            menu.Items.Add(item);
+        }
+        // 목록에 없는 글꼴을 골라 두었으면 그것도 체크해 보여 줌
+        if (current.Length > 0 && !listed) menu.Items.Add(Item(current, () => { }, check: true));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Item("다른 글꼴…", PickFont));
+        return menu;
+    }
+
+    // 메모 메뉴 → 글자 크기: 맨 위 "기본" (설정의 크기), 정해진 단계 (Ctrl+휠로도 한 단계씩)
+    private MenuItem FontSizeMenu()
+    {
+        var menu = Sub("글자 크기", "");
+        menu.IsEnabled = CanChangeFont;
+        double points = Memo.FontSize > 0 ? Memo.FontSize * 72 / 96 : 0;
+        menu.Items.Add(Item($"기본 ({_desk.Settings.FontSize * 72 / 96:0.#})", () => SetFont(Memo.FontFamily, 0), check: Memo.FontSize <= 0));
+        menu.Items.Add(new Separator());
+        foreach (double step in FontSizeSteps)
+        {
+            double chosen = step;
+            menu.Items.Add(Item($"{step:0.#}", () => SetFont(Memo.FontFamily, chosen * 96 / 72), check: points > 0 && Math.Abs(points - step) < 0.05));
+        }
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Item("크게", () => StepFontSize(1), gesture: "Ctrl+휠 ↑"));
+        menu.Items.Add(Item("작게", () => StepFontSize(-1), gesture: "Ctrl+휠 ↓"));
+        return menu;
+    }
+
+    /// <summary>목록에 없는 글꼴: Windows 글꼴 창 (글꼴과 크기를 함께)</summary>
+    private void PickFont()
+    {
+        using var dialog = new System.Windows.Forms.FontDialog { ShowEffects = false, AllowVerticalFonts = false };
+        try { dialog.Font = new System.Drawing.Font(EffectiveFontFamily, (float)(EffectiveFontSize * 72 / 96)); }
+        catch (ArgumentException) { }
+        if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+        SetFont(dialog.Font.Name, Math.Round(dialog.Font.SizeInPoints * 96 / 72, 2));
     }
 
     private static void CloseMenus(MenuItem item)

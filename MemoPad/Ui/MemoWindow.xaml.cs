@@ -36,6 +36,7 @@ public partial class MemoWindow : Window
         Editor.Document = NewDocument(settings);
         Editor.VerticalScrollBarVisibility = settings.ScrollBar ? ScrollBarVisibility.Auto : ScrollBarVisibility.Hidden;
         Editor.TextChanged += (_, _) => { if (!_loading) MarkDirty(); };
+        Editor.PreviewMouseWheel += OnEditorWheel;
         Editor.ContextMenuOpening += Editor_ContextMenuOpening;
         DataObject.AddPastingHandler(Editor, OnPasting);
         PreviewKeyDown += OnPreviewKeyDown;
@@ -79,6 +80,8 @@ public partial class MemoWindow : Window
         {
             if (Memo.Kind == MemoKind.Drawing) SetupInk();
             else if (Memo.Rtf.Length > 0) RtfText.Load(Editor.Document, Memo.Rtf);
+            // 이 메모의 글꼴: 저장된 본문(RTF)에 이미 들어 있으므로 새로 쓰는 글자의 기본값만
+            if (Memo.Kind == MemoKind.Text) ApplyFont(wholeText: false);
             Editor.IsReadOnly = Memo.ReadOnly;
             ApplyAttachments();
         }
@@ -127,6 +130,83 @@ public partial class MemoWindow : Window
     }
 
     public bool HasBody => Memo.Kind == MemoKind.Drawing ? Ink.Strokes.Count > 0 : RtfText.Plain(Editor.Document).Trim().Length > 0;
+
+    // ── 글꼴 · 글자 크기 (메모마다, 본문 전체) ─────────────────────
+
+    /// <summary>글자 크기 단계 (pt): 메뉴 · Ctrl+휠</summary>
+    internal static readonly double[] FontSizeSteps = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36];
+
+    /// <summary>지금 이 메모의 글꼴 이름 · 크기(DIP): 정하지 않았으면 설정의 기본</summary>
+    public string EffectiveFontFamily => Memo.FontFamily.Length > 0 ? Memo.FontFamily : _desk.Settings.FontFamily;
+    public double EffectiveFontSize => Memo.FontSize > 0 ? Memo.FontSize : _desk.Settings.FontSize;
+
+    /// <summary>글꼴 · 크기를 고칠 수 있는지 (글 메모, 읽기 전용 · 잠긴 보안 메모가 아님)</summary>
+    public bool CanChangeFont => Memo.Kind == MemoKind.Text && !Memo.ReadOnly && !(Memo.Secured && !_unlocked);
+
+    /// <summary>이 메모의 글꼴 · 크기를 바꿈 (본문 전체). family "" · size 0 = 설정의 기본으로</summary>
+    public void SetFont(string family, double size)
+    {
+        if (!CanChangeFont) return;
+        Memo.FontFamily = family.Trim();
+        Memo.FontSize = size > 0 ? Math.Round(size, 2) : 0;
+        Editor.BeginChange();
+        try { ApplyFont(wholeText: true); }
+        finally { Editor.EndChange(); }
+        MarkDirty();
+        ApplyStatus();
+    }
+
+    /// <summary>글자 크기 한 단계 크게(+1) · 작게(-1)</summary>
+    public void StepFontSize(int direction)
+    {
+        double points = EffectiveFontSize * 72 / 96;
+        double next = direction > 0
+            ? FontSizeSteps.FirstOrDefault(step => step > points + 0.05, FontSizeSteps[^1])
+            : FontSizeSteps.LastOrDefault(step => step < points - 0.05, FontSizeSteps[0]);
+        if (Math.Abs(next - points) > 0.05) SetFont(Memo.FontFamily, next * 96 / 72);
+    }
+
+    private void ApplyFont(bool wholeText)
+    {
+        var family = new FontFamily(EffectiveFontFamily + ", Malgun Gothic");
+        double size = EffectiveFontSize;
+        Editor.Document.FontFamily = family;
+        Editor.Document.FontSize = size;
+        if (!wholeText) return;
+        var range = new TextRange(Editor.Document.ContentStart, Editor.Document.ContentEnd);
+        range.ApplyPropertyValue(TextElement.FontFamilyProperty, family);
+        range.ApplyPropertyValue(TextElement.FontSizeProperty, size);
+        // RTF 를 읽으면 본문을 감싸는 묶음(Section 등)에도 예전 글꼴이 남음: 그것까지 (새 문단이 예전 글꼴을 물려받지 않게)
+        foreach (var block in AllBlocks(Editor.Document.Blocks))
+        {
+            block.FontFamily = family;
+            block.FontSize = size;
+        }
+    }
+
+    private static IEnumerable<Block> AllBlocks(BlockCollection blocks)
+    {
+        foreach (var block in blocks)
+        {
+            yield return block;
+            var inner = block switch
+            {
+                Section section => AllBlocks(section.Blocks),
+                List list => list.ListItems.SelectMany(item => AllBlocks(item.Blocks)),
+                Table table => table.RowGroups.SelectMany(group => group.Rows).SelectMany(row => row.Cells).SelectMany(cell => AllBlocks(cell.Blocks)),
+                _ => []
+            };
+            foreach (var child in inner) yield return child;
+        }
+    }
+
+    // Ctrl+휠: 글자 크기 한 단계
+    private void OnEditorWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.Control || !CanChangeFont) return;
+        e.Handled = true;
+        StepFontSize(e.Delta > 0 ? 1 : -1);
+    }
 
     // ── 창 자리 ───────────────────────────────────────────────
 

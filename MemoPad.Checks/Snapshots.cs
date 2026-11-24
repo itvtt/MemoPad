@@ -47,6 +47,21 @@ static class Snapshots
             desk.Hotkeys.Set(HotkeyAction.HideAll, default);
             desk.ShowAddressBook();
             Save(Application.Current.Windows.OfType<Window>().First(w => w.Title.StartsWith("주소록")), Path.Combine(folder, "addressbook.png"));
+            // 글꼴 · 글자 크기 (메모마다): 궁서 16pt 로 바꾼 메모, 메뉴 → 글꼴 · 글자 크기
+            var fontMemo = desk.NewMemo();
+            fontMemo.ReplaceRtf(RtfText.FromPlain("궁서 16pt 로 바꾼 메모\n다른 메모는 기본 글꼴 그대로"));
+            fontMemo.SetFont("Gungsuh", 16 * 96.0 / 72);
+            Save(fontMemo, Path.Combine(folder, "memo-font.png"));
+            foreach (var (header, file) in new[] { ("글꼴", "menu-font"), ("글자 크기", "menu-size") })
+            {
+                var menu = fontMemo.OpenMemoMenu(fontMemo.Editor);
+                Program.Run(() => Task.Delay(300), 5);
+                menu.Items.OfType<System.Windows.Controls.MenuItem>().First(item => item.Header as string == header).IsSubmenuOpen = true;
+                Program.Run(() => Task.Delay(500), 5);
+                SavePopups(Path.Combine(folder, file));
+                menu.IsOpen = false;
+                Program.Run(() => Task.Delay(200), 5);
+            }
             Console.WriteLine($"PNG -> {folder}");
             return 0;
         }
@@ -66,6 +81,23 @@ static class Snapshots
             if (FindScroll(child) is { } found) return found;
         }
         return null;
+    }
+
+    /// <summary>열린 메뉴(팝업)마다 PNG: 경로-1.png, 경로-2.png …</summary>
+    private static void SavePopups(string path)
+    {
+        int n = 0;
+        foreach (var source in PresentationSource.CurrentSources.OfType<System.Windows.Interop.HwndSource>().ToList())
+        {
+            if (source.RootVisual is not FrameworkElement root || !root.IsVisible || root.GetType().Name != "PopupRoot") continue;
+            double scale = VisualTreeHelper.GetDpi(root).DpiScaleX;
+            var bitmap = new RenderTargetBitmap((int)Math.Ceiling(root.ActualWidth * scale), (int)Math.Ceiling(root.ActualHeight * scale), 96 * scale, 96 * scale, PixelFormats.Pbgra32);
+            bitmap.Render(root);
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(bitmap));
+            using var stream = File.Create($"{path}-{++n}.png");
+            encoder.Save(stream);
+        }
     }
 
     private static void Save(Window window, string path, double zoom = 1)

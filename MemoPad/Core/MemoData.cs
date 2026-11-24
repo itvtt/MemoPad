@@ -94,6 +94,9 @@ public sealed class MemoData
     public double Opacity { get; set; } = 1;
     public bool StatusBar { get; set; }
     public double Zoom { get; set; } = 1;
+    /// <summary>이 메모의 글꼴 (비면 설정의 기본 글꼴) · 글자 크기(DIP, 0 이면 기본). 본문 전체에 적용</summary>
+    public string FontFamily { get; set; } = "";
+    public double FontSize { get; set; }
 
     public DateTime Created { get; set; } = DateTime.Now;
     public DateTime Modified { get; set; } = DateTime.Now;

@@ -46,6 +46,7 @@ static partial class Program
             Check("저장소: 저장 · 다시 읽기 · 휴지통 · 되살리기 · 폴더 · 첨부", Store);
             Check("저장소 지키기: 깨진 파일 되살림 · 읽지 못한 메모 폴더 · 잠깐 잠긴 파일 · 저장 실패 다시 시도 · 하루 백업 7개", StoreSafety);
             Check("접기: 오른쪽 위 작은 사각형 · 옮긴 자리에서 펼침 · 정렬 · 다시 열기", () => Run(CollapseSquare));
+            Check("글꼴 · 글자 크기: 메모마다 본문 전체 · 저장 · 다시 열어도 그대로 · 단계 · 기본으로 · 읽기 전용", () => Run(FontPerMemo));
             Check("데이터 폴더: MemoPad 파일만 옮김 · 첨부까지 · 있는 데이터 알아보기 · 안쪽 폴더", DataFolder);
             Check("단축키: 모두 숨기기 · 모두 보이기 (전역) · 저장 · 겹치면 옮김 · 남이 쓰면 되돌림, 메모 머리 날짜", () => Run(HotkeysFlow));
             Check("정음 메모 파일(HMD) 읽기", Hmd);

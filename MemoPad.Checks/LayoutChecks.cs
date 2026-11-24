@@ -83,4 +83,57 @@ static partial class Program
             desk.Shutdown();
         }
     }
+
+    /// <summary>메모마다 글꼴 · 글자 크기: 본문 전체 · 저장 · 다시 열어도 그대로 · 다른 메모는 그대로 · 단계 · 기본으로 · 읽기 전용은 못 바꿈</summary>
+    private static async Task FontPerMemo()
+    {
+        string folder = Folder("desk-font");
+        var desk = new Desk(new AppSettings { Name = "글꼴", UseNetwork = false, StartupConfigured = true, Sound = false, AddressBookFolder = folder },
+            new MemoStore(folder), IPAddress.Parse("127.0.0.13"));
+        desk.Start();
+        try
+        {
+            var window = desk.NewMemo();
+            window.ReplaceRtf(RtfText.FromPlain("글꼴 시험 첫 줄\n둘째 줄"));
+            var other = desk.NewMemo();
+            other.ReplaceRtf(RtfText.FromPlain("다른 메모"));
+
+            window.SetFont("Gulim", 18 * 96.0 / 72);
+            window.SaveNow();
+            Equal(("Gulim", 24.0), (window.Memo.FontFamily, window.Memo.FontSize), "메모에 글꼴 · 크기");
+            Assert(window.Memo.Rtf.Contains("Gulim") && window.Memo.Rtf.Contains(@"\fs36"), "본문 전체가 굴림 18pt (RTF)");
+            Assert(other.Memo.FontFamily.Length == 0 && !other.Memo.Rtf.Contains("Gulim"), "다른 메모는 그대로");
+
+            // 다시 열어도 그대로이고, 새로 쓰는 글자도 그 글꼴
+            var memo = window.Memo;
+            window.Close();
+            var reopened = desk.Open(memo, activate: false);
+            await Task.Delay(100);
+            Equal(("Gulim", 24.0), (reopened.EffectiveFontFamily, reopened.EffectiveFontSize), "다시 열어도 그대로");
+            Assert(reopened.Editor.Document.FontFamily.Source.StartsWith("Gulim", StringComparison.Ordinal), "새로 쓰는 글자도 굴림");
+
+            // 한 단계씩 (Ctrl+휠): 18 → 20 → 18 → 16
+            reopened.StepFontSize(1);
+            Equal(20.0, Math.Round(reopened.Memo.FontSize * 72 / 96, 2), "크게 한 단계");
+            reopened.StepFontSize(-1);
+            reopened.StepFontSize(-1);
+            Equal(16.0, Math.Round(reopened.Memo.FontSize * 72 / 96, 2), "작게 두 단계");
+
+            // 기본으로 되돌림
+            reopened.SetFont("", 0);
+            reopened.SaveNow();
+            Equal(("", 0.0), (reopened.Memo.FontFamily, reopened.Memo.FontSize), "기본으로");
+            Assert(!reopened.Memo.Rtf.Contains("Gulim"), "본문도 기본 글꼴로");
+
+            // 읽기 전용이면 바꾸지 않음
+            reopened.Memo.ReadOnly = true;
+            reopened.SetFont("Batang", 40);
+            Equal("", reopened.Memo.FontFamily, "읽기 전용은 그대로");
+        }
+        finally
+        {
+            foreach (var window in desk.Windows.ToList()) window.Close();
+            desk.Shutdown();
+        }
+    }
 }
