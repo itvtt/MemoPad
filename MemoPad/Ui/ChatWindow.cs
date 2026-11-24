@@ -32,12 +32,12 @@ public sealed class ChatWindow : Window
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Icon = App.IconImage;
 
-        _lock = Chrome.IconButton(Icons.Lock, "대화방 잠그기 (새로 못 들어옴)", ToggleLock, 10.5);
+        _lock = Chrome.IconButton(Icons.Lock, "대화방 잠그기 (새로 못 들어옴)", ToggleLock, 13);
         _titleBar = Chrome.TitleBar(this, "대화", Icons.Chat, true,
-            Chrome.IconButton("", "접속 변경 (다른 사람에게 들어가기)", Connect, 10.5),
+            Chrome.IconButton("", "접속 변경 (다른 사람에게 들어가기)", Connect, 13),
             _lock,
-            Chrome.IconButton(Icons.Save, "갈무리 (대화 내용 저장)", SaveLog, 10.5),
-            Chrome.IconButton("", "단축 문구 (F1~F12)", EditMacros, 10.5));
+            Chrome.IconButton(Icons.Save, "갈무리 (대화 내용 저장)", SaveLog, 13),
+            Chrome.IconButton("", "단축 문구 (F1~F12)", EditMacros, 13));
         var root = new DockPanel();
         DockPanel.SetDock(_titleBar, Dock.Top);
         root.Children.Add(_titleBar);

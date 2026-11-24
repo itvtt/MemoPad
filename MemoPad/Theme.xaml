@@ -106,8 +106,8 @@
 
     <!-- 아이콘 하나짜리 둥근 버튼 (도구 막대) -->
     <Style x:Key="IconButtonStyle" TargetType="Button">
-        <Setter Property="Width" Value="28" />
-        <Setter Property="Height" Value="28" />
+        <Setter Property="Width" Value="34" />
+        <Setter Property="Height" Value="34" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="#FFE5E5EA" />
         <Setter Property="Cursor" Value="Hand" />
@@ -272,12 +272,12 @@
                     <Grid>
                         <Border x:Name="Row" Height="34" Padding="10,0,10,0" CornerRadius="8" Background="Transparent">
                             <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="14" /></Grid.ColumnDefinitions>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="28" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="14" /></Grid.ColumnDefinitions>
                                 <ContentPresenter ContentSource="Icon" HorizontalAlignment="Left" VerticalAlignment="Center" Opacity="0.8"
-                                                  TextElement.FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" TextElement.FontSize="11" />
+                                                  TextElement.FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" TextElement.FontSize="14" />
                                 <ContentPresenter Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="2" Margin="18,0,0,0" VerticalAlignment="Center" FontSize="11.5" Foreground="#FF8E8E93" Text="{TemplateBinding InputGestureText}" />
-                                <TextBlock x:Name="Arrow" Grid.Column="3" Text="&#xE76C;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="7" Foreground="#FFB8BAC2"
+                                <TextBlock x:Name="Arrow" Grid.Column="3" Text="&#xE76C;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="9" Foreground="#FFB8BAC2"
                                            HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed" />
                             </Grid>
                         </Border>

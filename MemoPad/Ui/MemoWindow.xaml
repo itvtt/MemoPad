@@ -12,11 +12,11 @@
     <Window.Resources>
         <!-- 메모 위의 작은 단추: 바탕은 메모 색, 아이콘은 어두운 반투명 -->
         <Style x:Key="MemoButton" TargetType="Button">
-            <Setter Property="Width" Value="21" />
-            <Setter Property="Height" Value="19" />
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="24" />
             <Setter Property="Foreground" Value="#B3000000" />
             <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
-            <Setter Property="FontSize" Value="9" />
+            <Setter Property="FontSize" Value="11" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Focusable" Value="False" />
             <Setter Property="Template">
@@ -38,11 +38,11 @@
             </Setter>
         </Style>
         <Style x:Key="MemoToggle" TargetType="ToggleButton">
-            <Setter Property="Width" Value="19" />
-            <Setter Property="Height" Value="19" />
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
             <Setter Property="Foreground" Value="#B3000000" />
             <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
-            <Setter Property="FontSize" Value="9" />
+            <Setter Property="FontSize" Value="11" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Focusable" Value="False" />
             <Setter Property="Template">
@@ -60,15 +60,15 @@
             </Setter>
         </Style>
         <Style x:Key="InkToolStyle" TargetType="RadioButton">
-            <Setter Property="Width" Value="19" />
-            <Setter Property="Height" Value="19" />
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
             <Setter Property="Focusable" Value="False" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
                         <Grid Background="Transparent">
-                            <Ellipse x:Name="Ring" Width="16" Height="16" Stroke="Transparent" StrokeThickness="2" />
+                            <Ellipse x:Name="Ring" Width="20" Height="20" Stroke="Transparent" StrokeThickness="2" />
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Grid>
                         <ControlTemplate.Triggers>
@@ -110,7 +110,7 @@
         </Grid.RowDefinitions>
 
         <!-- 머리: 메뉴 · 제목 · 상태 아이콘 · 항상 위 · 삭제 잠금 · 접기 · 버리기 -->
-        <Border x:Name="Header" Grid.Row="0" Height="24" Background="#0F000000" Padding="2,0,2,0"
+        <Border x:Name="Header" Grid.Row="0" Height="28" Background="#0F000000" Padding="2,0,2,0"
                 MouseLeftButtonDown="Header_MouseLeftButtonDown" MouseRightButtonUp="Header_MouseRightButtonUp">
             <DockPanel LastChildFill="True">
                 <Button x:Name="MenuButton" DockPanel.Dock="Left" Style="{StaticResource MemoButton}" Content="&#xE700;" ToolTip="메뉴" Click="MenuButton_Click" />
@@ -122,7 +122,7 @@
                             ToolTipService.ShowOnDisabled="True" />
                 </StackPanel>
                 <StackPanel x:Name="StateIcons" DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,2,0" VerticalAlignment="Center"
-                            TextElement.FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" TextElement.FontSize="9" TextElement.Foreground="#8C000000" />
+                            TextElement.FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" TextElement.FontSize="11" TextElement.Foreground="#8C000000" />
                 <Grid Margin="4,0,4,0" VerticalAlignment="Center">
                     <TextBlock x:Name="TitleText" VerticalAlignment="Center" FontSize="11.5" Foreground="#99000000" TextTrimming="CharacterEllipsis" />
                     <TextBox x:Name="TitleEditor" Style="{StaticResource TitleEditorStyle}" MaxLength="60" Visibility="Collapsed" />
@@ -142,7 +142,7 @@
         </Border>
         <Border x:Name="SecureCover" Grid.Row="1" Visibility="Collapsed" Background="Transparent" Cursor="Hand" MouseLeftButtonUp="SecureCover_MouseLeftButtonUp">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                <TextBlock Text="&#xE72E;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="16" Foreground="#99000000" HorizontalAlignment="Center" />
+                <TextBlock Text="&#xE72E;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="20" Foreground="#99000000" HorizontalAlignment="Center" />
                 <TextBlock Margin="0,6,0,0" Text="보안 메모" FontSize="12" Foreground="#99000000" HorizontalAlignment="Center" />
             </StackPanel>
         </Border>

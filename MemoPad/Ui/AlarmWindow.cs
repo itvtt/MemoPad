@@ -81,7 +81,7 @@ internal sealed class AlarmWindow : DialogWindow
 
         var soundRow = new DockPanel { Margin = new Thickness(0, 12, 0, 0) };
         var soundButtons = new StackPanel { Orientation = Orientation.Horizontal };
-        soundButtons.Children.Add(Chrome.IconButton("", "들어 보기", () => AlarmPopup.PlaySound(_soundFile, loop: false), 10.5));
+        soundButtons.Children.Add(Chrome.IconButton("", "들어 보기", () => AlarmPopup.PlaySound(_soundFile, loop: false), 13));
         soundButtons.Children.Add(Chrome.Pill("소리 바꾸기…", ChooseSound));
         DockPanel.SetDock(soundButtons, Dock.Right);
         soundRow.Children.Add(soundButtons);

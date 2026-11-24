@@ -44,9 +44,9 @@ internal sealed class RecipientsWindow : DialogWindow
         var head = new DockPanel { Margin = new Thickness(0, 0, 0, 8), Height = 34 };
         var tools = new StackPanel { Orientation = Orientation.Horizontal };
         DockPanel.SetDock(tools, Dock.Right);
-        tools.Children.Add(Chrome.IconButton(Icons.Up, "위로", () => MoveChosen(-1), 9.5));
-        tools.Children.Add(Chrome.IconButton(Icons.Down, "아래로", () => MoveChosen(1), 9.5));
-        tools.Children.Add(Chrome.IconButton(Icons.Close, "빼기 (Delete)", RemoveChosen, 9));
+        tools.Children.Add(Chrome.IconButton(Icons.Up, "위로", () => MoveChosen(-1), 12));
+        tools.Children.Add(Chrome.IconButton(Icons.Down, "아래로", () => MoveChosen(1), 12));
+        tools.Children.Add(Chrome.IconButton(Icons.Close, "빼기 (Delete)", RemoveChosen, 11));
         head.Children.Add(tools);
         head.Children.Add(new TextBlock { Text = kind == SendKind.Circulate ? "회람 순서" : "받을 사람", Style = (Style)Application.Current.Resources["FieldLabelStyle"], FontWeight = FontWeights.SemiBold });
         right.Children.Add(head);
