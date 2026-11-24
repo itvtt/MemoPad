@@ -160,9 +160,10 @@ public sealed partial class Desk
         window.Close();
     }
 
-    /// <summary>버리기: 휴지통으로 (휴지통을 안 쓰면 물어보고 지움)</summary>
+    /// <summary>버리기: 휴지통으로 (휴지통을 안 쓰면 물어보고 지움). 삭제 잠긴 메모는 그대로</summary>
     public void Discard(MemoWindow window)
     {
+        if (window.Memo.DeleteLocked) return;
         window.SaveNow();
         var memo = window.Memo;
         if (!Settings.UseTrash && window.HasBody && !Dialogs.Ask(window, "버리기", "메모를 버리시겠습니까?")) return;
@@ -185,10 +186,15 @@ public sealed partial class Desk
         foreach (var window in _windows.Values.ToList()) HideMemo(window);
     }
 
+    /// <summary>바탕화면 메모 모두 버리기 (삭제 잠긴 메모는 그대로)</summary>
     public void DiscardAll()
     {
-        if (_windows.Count == 0 || !Dialogs.Ask(null, "모두 버리기", "바탕화면의 메모를 모두 버리시겠습니까?" + (Settings.UseTrash ? "\n(메모 관리기의 휴지통에서 되살릴 수 있습니다)" : ""))) return;
-        foreach (var window in _windows.Values.ToList())
+        var windows = _windows.Values.Where(w => !w.Memo.DeleteLocked).ToList();
+        int kept = _windows.Count - windows.Count;
+        if (windows.Count == 0 || !Dialogs.Ask(null, "모두 버리기", "바탕화면의 메모를 모두 버리시겠습니까?"
+            + (kept > 0 ? $"\n삭제 잠긴 메모 {kept}개는 그대로 둡니다." : "")
+            + (Settings.UseTrash ? "\n(메모 관리기의 휴지통에서 되살릴 수 있습니다)" : ""))) return;
+        foreach (var window in windows)
         {
             window.SaveNow();
             var memo = window.Memo;

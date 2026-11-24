@@ -204,6 +204,7 @@ internal sealed class ManagerWindow : Window
         var kind = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
         void Glyph(string g, string tip) => kind.Children.Add(new TextBlock { Text = g, FontFamily = Icons.Font, FontSize = 11, Margin = new Thickness(6, 0, 0, 0), Foreground = new SolidColorBrush(Color.FromRgb(0xB8, 0xBA, 0xC2)), ToolTip = tip, VerticalAlignment = VerticalAlignment.Center });
         if (memo.Visible && !memo.Deleted) Glyph(Icons.Show, "바탕화면에 있음");
+        if (memo.DeleteLocked) Glyph(Icons.Lock, "삭제 잠김");
         if (memo.Alarm is { Done: false }) Glyph(Icons.Clock, $"알람 {memo.Alarm.At:M/d HH:mm}");
         if (memo.Attachments.Count > 0) Glyph(Icons.Attach, $"첨부 {memo.Attachments.Count}개");
         kind.Children.Add(new TextBlock { Text = memo.From is { } from && memo.Origin != MemoOrigin.Mine ? $"{memo.KindText} · {from.Label}" : memo.KindText, FontSize = 11.5, Margin = new Thickness(6, 0, 0, 0), Foreground = new SolidColorBrush(Color.FromRgb(0xB8, 0xBA, 0xC2)) });
@@ -248,8 +249,9 @@ internal sealed class ManagerWindow : Window
     private void DeleteSelected()
     {
         var memos = SelectedMemos();
-        if (memos.Count == 0) return;
-        if (_folder == TrashKey)
+        // 삭제 잠긴 메모는 그대로 (알려 줌)
+        int locked = memos.RemoveAll(m => m.DeleteLocked);
+        if (memos.Count > 0 && _folder == TrashKey)
         {
             if (!Dialogs.Ask(this, "완전히 지우기", $"고른 메모 {memos.Count}개를 완전히 지울까요? 되살릴 수 없습니다.")) return;
             foreach (var memo in memos) _desk.Store.Delete(memo);
@@ -262,7 +264,8 @@ internal sealed class ManagerWindow : Window
                 _desk.Store.MoveToTrash(memo, _desk.Settings.UseTrash);
             }
         }
-        Reload();
+        if (memos.Count > 0) Reload();
+        if (locked > 0) Dialogs.Info(this, "버리기", $"삭제 잠긴 메모 {locked}개는 그대로 둡니다.");
     }
 
     private void Restore()
@@ -430,7 +433,7 @@ internal sealed class ManagerWindow : Window
         var memos = ids.Select(id => _desk.Store.Find(Guid.Parse(id))).Where(m => m is not null).Select(m => m!).ToList();
         if (key == TrashKey)
         {
-            foreach (var memo in memos)
+            foreach (var memo in memos.Where(m => !m.DeleteLocked))
             {
                 if (_desk.WindowOf(memo) is { } window) { window.SaveNow(); window.Close(); }
                 _desk.Store.MoveToTrash(memo, true);

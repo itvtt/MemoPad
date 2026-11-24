@@ -47,6 +47,7 @@ static partial class Program
             Check("저장소 지키기: 깨진 파일 되살림 · 읽지 못한 메모 폴더 · 잠깐 잠긴 파일 · 저장 실패 다시 시도 · 하루 백업 7개", StoreSafety);
             Check("접기: 오른쪽 위 사각형 + 본문 첫 줄 · 옮긴 자리에서 펼침 · 정렬 · 다시 열기 · 빈 메모 · 보안 메모는 사각형만", () => Run(CollapseSquare));
             Check("제목: 머리 · 접은 메모에 보임 · 저장 · 입력 칸(Enter · Esc) · 비우면 날짜", () => Run(MemoTitle));
+            Check("삭제 잠금: 자물쇠 단추 · ✕ 꺼짐 · 버리기 안 됨 · 저장 · 풀면 버려짐", () => Run(DeleteLock));
             Check("새 메모 기본: 항상 위 (처음 설치), 설정에서 끄면 보통", () => Run(DefaultOnTop));
             Check("글꼴 · 글자 크기: 메모마다 본문 전체 · 저장 · 다시 열어도 그대로 · 단계 · 기본으로 · 읽기 전용", () => Run(FontPerMemo));
             Check("데이터 폴더: MemoPad 파일만 옮김 · 첨부까지 · 있는 데이터 알아보기 · 안쪽 폴더", DataFolder);

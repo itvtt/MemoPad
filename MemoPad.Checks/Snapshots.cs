@@ -27,6 +27,9 @@ static class Snapshots
             titled.ReplaceRtf(RtfText.FromPlain("월요일 10시\n지난주 실적 정리"));
             titled.SetTitle("주간 회의");
             Save(titled, Path.Combine(folder, "memo-title.png"));
+            titled.ToggleDeleteLock();
+            Save(titled, Path.Combine(folder, "memo-delete-locked.png"));
+            titled.ToggleDeleteLock();
             titled.BeginTitleEdit();
             Save(titled, Path.Combine(folder, "memo-title-edit.png"));
             titled.EndTitleEdit(commit: false);

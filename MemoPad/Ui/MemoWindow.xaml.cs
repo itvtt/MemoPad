@@ -349,6 +349,10 @@ public partial class MemoWindow : Window
         Background = Root.Background;
         PinButton.Content = Memo.Layer == MemoLayer.Top ? Icons.Pinned : Icons.Pin;
         PinButton.ToolTip = Memo.Layer == MemoLayer.Top ? "항상 위 끄기" : "항상 위";
+        DeleteLockButton.Content = Memo.DeleteLocked ? Icons.Lock : Icons.Unlock;
+        DeleteLockButton.ToolTip = Memo.DeleteLocked ? "삭제 잠금 풀기" : "삭제 잠그기";
+        CloseButton.IsEnabled = !Memo.DeleteLocked;
+        CloseButton.ToolTip = Memo.DeleteLocked ? "삭제 잠김" : "버리기 (Alt+F4)";
         Editor.IsReadOnly = Memo.ReadOnly;
         Ink.EditingMode = Memo.ReadOnly ? InkCanvasEditingMode.None : Ink.EditingMode;
         WindowChromeInfo.ResizeBorderThickness = new Thickness(Memo.Locked || Memo.Collapsed ? 0 : 5);
@@ -375,8 +379,8 @@ public partial class MemoWindow : Window
         StatusBar.Visibility = open && Memo.StatusBar ? Visibility.Visible : Visibility.Collapsed;
         Header.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
         CollapsedFace.Visibility = open ? Visibility.Collapsed : Visibility.Visible;
-        // 접은 사각형은 아주 작으므로 최소 크기를 풂
-        MinWidth = open ? 120 : 0;
+        // 접은 사각형은 아주 작으므로 최소 크기를 풂 (펼치면 머리 단추 다섯 개가 들어갈 만큼)
+        MinWidth = open ? 150 : 0;
         MinHeight = open ? 60 : 0;
         if (!open) ApplyFace();
         ApplyBounds();
@@ -455,7 +459,7 @@ public partial class MemoWindow : Window
         StateIcons.Children.Clear();
         void State(string glyph, string tip) => StateIcons.Children.Add(new TextBlock { Text = glyph, Margin = new Thickness(3, 0, 0, 0), ToolTip = tip });
         if (Memo.Alarm is { Done: false } alarm) State(Icons.Clock, $"알람 {alarm.At:M/d HH:mm}");
-        if (Memo.Locked) State(Icons.Lock, "잠김 (옮기기 · 크기 바꾸기 안 됨)");
+        if (Memo.Locked) State(Icons.Move, "자리 고정 (옮기기 · 크기 바꾸기 안 됨)");
         if (Memo.ReadOnly) State(Icons.ReadOnly, "읽기 전용");
         if (Memo.Secured) State("", "보안 메모");
         Title = $"MemoPad - {Memo.Label}";
@@ -612,6 +616,11 @@ public partial class MemoWindow : Window
     private void MenuButton_Click(object sender, RoutedEventArgs e) => OpenMemoMenu(MenuButton);
 
     private void PinButton_Click(object sender, RoutedEventArgs e) => SetLayer(Memo.Layer == MemoLayer.Top ? MemoLayer.Normal : MemoLayer.Top);
+
+    private void DeleteLockButton_Click(object sender, RoutedEventArgs e) => ToggleDeleteLock();
+
+    /// <summary>삭제 잠금 켜기 · 끄기 (잠그면 ✕ · Alt+F4 · 버리기 · 모두 버리기 · 메모 관리기에서 지울 수 없음)</summary>
+    public void ToggleDeleteLock() => Toggle(m => m.DeleteLocked = !m.DeleteLocked);
 
     private void CollapseButton_Click(object sender, RoutedEventArgs e) => ToggleCollapse();
 

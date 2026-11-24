@@ -169,6 +169,42 @@ static partial class Program
         }
     }
 
+    /// <summary>삭제 잠금: 머리 자물쇠 단추 · ✕ 꺼짐 · 버리기 안 됨 · 저장 · 풀면 버려짐</summary>
+    private static async Task DeleteLock()
+    {
+        string folder = Folder("desk-deletelock");
+        var desk = new Desk(new AppSettings { Name = "삭제 잠금", UseNetwork = false, StartupConfigured = true, Sound = false, AddressBookFolder = folder },
+            new MemoStore(folder), IPAddress.Parse("127.0.0.17"));
+        desk.Start();
+        try
+        {
+            var window = desk.NewMemo();
+            window.ReplaceRtf(RtfText.FromPlain("지우면 안 되는 메모"));
+            await Task.Delay(100);
+            Equal((Icons.Unlock, true), ((string)window.DeleteLockButton.Content, window.CloseButton.IsEnabled), "처음엔 열린 자물쇠 · ✕ 켜짐");
+
+            window.ToggleDeleteLock();
+            Equal((true, Icons.Lock, false), (window.Memo.DeleteLocked, (string)window.DeleteLockButton.Content, window.CloseButton.IsEnabled), "잠그면 닫힌 자물쇠 · ✕ 꺼짐");
+            Assert(new MemoStore(folder).Find(window.Memo.Id)?.DeleteLocked == true, "삭제 잠금 저장");
+
+            desk.Discard(window);
+            await Task.Delay(100);
+            Assert(window.IsVisible && !window.Memo.Deleted && desk.WindowOf(window.Memo) is not null, "잠긴 메모는 버리기 (✕ · Alt+F4 · 메뉴) 안 됨");
+
+            window.ToggleDeleteLock();
+            Equal((false, true), (window.Memo.DeleteLocked, window.CloseButton.IsEnabled), "풀면 ✕ 다시 켜짐");
+            var memo = window.Memo;
+            desk.Discard(window);
+            await Task.Delay(100);
+            Assert(memo.Deleted && desk.WindowOf(memo) is null, "풀면 버려짐 (휴지통)");
+        }
+        finally
+        {
+            foreach (var window in desk.Windows.ToList()) window.Close();
+            desk.Shutdown();
+        }
+    }
+
     /// <summary>새 메모 기본은 항상 위 (처음 설치 = 기본 설정), 설정에서 끄면 보통</summary>
     private static async Task DefaultOnTop()
     {

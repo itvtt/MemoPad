@@ -91,6 +91,8 @@ public sealed class MemoData
     public bool Visible { get; set; } = true;
     public bool Collapsed { get; set; }
     public bool Locked { get; set; }
+    /// <summary>삭제 잠금: 버리기 · 모두 버리기 · 메모 관리기에서 지우기가 안 됨 (머리의 자물쇠 단추)</summary>
+    public bool DeleteLocked { get; set; }
     public bool ReadOnly { get; set; }
     public bool Secured { get; set; }
     /// <summary>0.2 ~ 1</summary>

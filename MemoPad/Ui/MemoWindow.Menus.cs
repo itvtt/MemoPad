@@ -83,6 +83,7 @@ public partial class MemoWindow
             Item("항상 아래", () => SetLayer(Memo.Layer == MemoLayer.Bottom ? MemoLayer.Normal : MemoLayer.Bottom), check: Memo.Layer == MemoLayer.Bottom),
             new Separator(),
             Item("잠그기 (자리 고정)", () => Toggle(m => m.Locked = !m.Locked), check: Memo.Locked),
+            Item("삭제 잠그기", ToggleDeleteLock, check: Memo.DeleteLocked),
             Item("읽기 전용", () => Toggle(m => m.ReadOnly = !m.ReadOnly), check: Memo.ReadOnly),
             Item("보안 메모 (암호)", ToggleSecure, check: Memo.Secured),
             new Separator(),
@@ -98,7 +99,7 @@ public partial class MemoWindow
             Item("인쇄…", Print, "", "Ctrl+P")));
         items.Add(new Separator());
         items.Add(Item("숨기기", () => _desk.HideMemo(this), Icons.Hide));
-        var discard = Item("버리기", () => _desk.Discard(this), Icons.Delete, "Alt+F4");
+        var discard = Item(Memo.DeleteLocked ? "버리기 (삭제 잠김)" : "버리기", () => _desk.Discard(this), Icons.Delete, "Alt+F4", enabled: !Memo.DeleteLocked);
         discard.Style = (Style)Application.Current.Resources["DangerMenuItemStyle"];
         items.Add(discard);
 

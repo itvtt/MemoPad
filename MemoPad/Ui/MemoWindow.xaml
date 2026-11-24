@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="MemoPad" WindowStyle="None" ResizeMode="CanResize" ShowInTaskbar="False"
-        MinWidth="120" MinHeight="30" Width="260" Height="180"
+        MinWidth="150" MinHeight="30" Width="260" Height="180"
         UseLayoutRounding="True" TextOptions.TextFormattingMode="Display" AllowDrop="True"
         FontFamily="Segoe UI, Malgun Gothic">
     <shell:WindowChrome.WindowChrome>
@@ -31,6 +31,7 @@
                                 <Setter Property="Foreground" Value="#E6000000" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True"><Setter TargetName="Face" Property="Background" Value="#29000000" /></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.3" /></Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -108,15 +109,17 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- 머리: 메뉴 · 제목 · 상태 아이콘 · 항상 위 · 접기 · 버리기 -->
+        <!-- 머리: 메뉴 · 제목 · 상태 아이콘 · 항상 위 · 삭제 잠금 · 접기 · 버리기 -->
         <Border x:Name="Header" Grid.Row="0" Height="28" Background="#0F000000" Padding="2,0,2,0"
                 MouseLeftButtonDown="Header_MouseLeftButtonDown" MouseRightButtonUp="Header_MouseRightButtonUp">
             <DockPanel LastChildFill="True">
                 <Button x:Name="MenuButton" DockPanel.Dock="Left" Style="{StaticResource MemoButton}" Content="&#xE700;" ToolTip="메뉴" Click="MenuButton_Click" />
                 <StackPanel x:Name="HeaderButtons" DockPanel.Dock="Right" Orientation="Horizontal">
                     <Button x:Name="PinButton" Style="{StaticResource MemoButton}" Content="&#xE718;" ToolTip="항상 위" Click="PinButton_Click" />
+                    <Button x:Name="DeleteLockButton" Style="{StaticResource MemoButton}" Content="&#xE785;" ToolTip="삭제 잠그기" Click="DeleteLockButton_Click" />
                     <Button x:Name="CollapseButton" Style="{StaticResource MemoButton}" Content="&#xE921;" ToolTip="접기 (제목 두 번 클릭)" Click="CollapseButton_Click" />
-                    <Button x:Name="CloseButton" Style="{StaticResource MemoButton}" Content="&#xE8BB;" ToolTip="버리기 (Alt+F4)" Click="CloseButton_Click" />
+                    <Button x:Name="CloseButton" Style="{StaticResource MemoButton}" Content="&#xE8BB;" ToolTip="버리기 (Alt+F4)" Click="CloseButton_Click"
+                            ToolTipService.ShowOnDisabled="True" />
                 </StackPanel>
                 <StackPanel x:Name="StateIcons" DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,2,0" VerticalAlignment="Center"
                             TextElement.FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" TextElement.FontSize="11" TextElement.Foreground="#8C000000" />

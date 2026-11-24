@@ -142,6 +142,8 @@ internal static class Chrome
 internal static class Icons
 {
     public static readonly FontFamily Font = new("Segoe Fluent Icons, Segoe MDL2 Assets");
+    /// <summary>열린 자물쇠 (삭제 잠금 꺼짐) · 네 방향 화살표 (자리 고정 상태)</summary>
+    public const string Unlock = "", Move = "";
     public const string Menu = "", Pin = "", Pinned = "", Minimize = "", Close = "", Lock = "",
         Clock = "", Attach = "", ReadOnly = "", Send = "", Reply = "", Mail = "", Add = "",
         Delete = "", Edit = "", Search = "", Folder = "", People = "", Chat = "", Settings = "",
