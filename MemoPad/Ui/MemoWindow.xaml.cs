@@ -51,8 +51,12 @@ public partial class MemoWindow : Window
         Activated += (_, _) =>
         {
             ApplyActive(true);
-            // 창을 앞으로 가져오면 바로 본문에 쓸 수 있게
-            if (!IsKeyboardFocusWithin && !Memo.Collapsed) Dispatcher.BeginInvoke(() => (Memo.Kind == MemoKind.Drawing ? (IInputElement)Ink : Editor).Focus());
+            // 창을 앞으로 가져오면 바로 본문에 쓸 수 있게. 그 사이 다른 창이 앞으로 왔으면 그대로 둠:
+            // 늦게 온 Focus() 가 이 창을 다시 활성화하면 메모끼리 서로 앞으로 나오려고 끝없이 다툼 (모두 보이기 · 설정)
+            if (!IsKeyboardFocusWithin && !Memo.Collapsed) Dispatcher.BeginInvoke(() =>
+            {
+                if (IsActive && !IsKeyboardFocusWithin && !Memo.Collapsed) (Memo.Kind == MemoKind.Drawing ? (IInputElement)Ink : Editor).Focus();
+            });
         };
         Deactivated += (_, _) => OnDeactivated();
         Closing += (_, _) => SaveNow();

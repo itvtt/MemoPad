@@ -179,10 +179,13 @@ public sealed partial class Desk
         StateChanged?.Invoke();
     }
 
+    /// <summary>모든 메모를 앞으로 (오래 고친 것부터 쌓아 최근 메모가 맨 위). 활성화는 맨 위 메모 하나만</summary>
     public void ShowAll()
     {
         foreach (var memo in Store.Live.ToList()) Open(memo, activate: false);
-        foreach (var window in _windows.Values) window.BringToFront();
+        var windows = _windows.Values.OrderBy(w => w.Memo.Modified).ToList();
+        foreach (var window in windows) window.BringToFront(activate: false);
+        windows.LastOrDefault(w => w.Memo.Layer != MemoLayer.Bottom)?.Activate();
     }
 
     public void HideAll()

@@ -49,6 +49,7 @@ static partial class Program
             Check("제목: 머리 · 접은 메모에 보임 · 저장 · 입력 칸(Enter · Esc) · 비우면 날짜", () => Run(MemoTitle));
             Check("버리기 · 삭제 잠금: 늘 물어봄 (취소 = 그대로) · 자물쇠 단추 · ✕ 꺼짐 · 잠기면 버리기 안 됨 · 저장", () => Run(DeleteLock));
             Check("새 메모 기본: 항상 위 (처음 설치), 설정에서 끄면 보통", () => Run(DefaultOnTop));
+            Check("모두 보이기 · 설정: 메모끼리 앞으로 나오려고 다투지 않음", () => Run(FocusCalm));
             Check("글꼴 · 글자 크기: 메모마다 본문 전체 · 저장 · 다시 열어도 그대로 · 단계 · 기본으로 · 읽기 전용", () => Run(FontPerMemo));
             Check("데이터 폴더: MemoPad 파일만 옮김 · 첨부까지 · 있는 데이터 알아보기 · 안쪽 폴더", DataFolder);
             Check("단축키: 모두 숨기기 · 모두 보이기 (전역) · 저장 · 겹치면 옮김 · 남이 쓰면 되돌림, 메모 머리 날짜", () => Run(HotkeysFlow));
